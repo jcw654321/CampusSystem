@@ -18,7 +18,6 @@ public:
     void setStudentId(const string& studentId);   // 设置学号
     void setClassName(const string& className);   // 设置班级
     void setGrade(const string& grade);           // 设置年级
-    void addSubject(const subject& s);            // 添加课程
 
 private:
     string major;            // 专业
@@ -26,6 +25,8 @@ private:
     string className;        // 班级
     string grade;            // 年级
     vector<subject> subjects; // 学生所选课程列表
+friend class StudentManager; // 声明StudentManager为友元类，以便访问私有成员
+friend class SubjectManager;   // 声明SubjectManager为友元类，以便访问私有成员
 };
 
 
@@ -63,8 +64,4 @@ void Student::setGrade(const string& grade) {
 
 const vector<subject>& Student::getSubjects() const {
     return subjects;
-}
-
-void Student::addSubject(const subject& s) {
-    subjects.push_back(s);
 }

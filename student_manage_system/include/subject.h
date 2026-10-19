@@ -20,7 +20,7 @@ private:
     string name;           // 课程名称
     string subjectId;      // 课程ID
     string teacherName;    // 教师姓名
-    float score;           // 课程成绩
+    float score=-1.0;           // 课程成绩(若该课程还没有成绩，则为-1.0)
 };
 
 
