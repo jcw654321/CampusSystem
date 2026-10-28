@@ -4,13 +4,6 @@
 #include<string>
 using namespace std;
 
-struct Date{
-    int year,month,day;
-};
-
-bool parseDate(const string& date, Date& parsedDate);      // 解析日期字符串为Date结构体
-bool compareDate(const string& date1,const string& date2); // 比较两个日期字符串的大小
-
 class LoanRecord{
 public:
     LoanRecord() = default;
@@ -21,7 +14,7 @@ public:
         bool isoverdue(const string& currentDate) const;  // 判断是否逾期
         bool markasreturned(const string& returnDate);  // 标记为已归还
         void displayLoanRecordInfo() const;  // 显示借阅记录信息
-        
+
         string getLoanId() const { return loanId; } 
         string getStudentId() const { return studentId; }
         string getBookId() const { return bookId; }
