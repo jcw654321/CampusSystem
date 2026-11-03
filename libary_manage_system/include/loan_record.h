@@ -33,4 +33,3 @@ public:
     string duedate;            // 归还截止日期
     string operatorId;         // 操作员
 };
-
