@@ -43,6 +43,7 @@ bool isLoanOverdue(int index,const string& today) const;//判断第index条借�
 public://数据文件读写相关成员函数
 bool loadData(string& reason);//读取文件
 bool saveData(string& reason);//写入文件
+void showMenu();
 
 private:
 vector<Book> books;            //图书仓库
