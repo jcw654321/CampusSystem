@@ -7,7 +7,13 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "${file}",
+                 "-I${workspaceFolder}\\student_manage_system\\include",
+                "${workspaceFolder}\\student_manage_system\\src\\main.cpp",
+                "${workspaceFolder}\\student_manage_system\\src\\student.cpp",
+                "${workspaceFolder}\\student_manage_system\\src\\student_manager.cpp",
+                "${workspaceFolder}\\student_manage_system\\src\\subject.cpp",
+                "${workspaceFolder}\\student_manage_system\\src\\subject_manager.cpp",
+                "${workspaceFolder}\\student_manage_system\\src\\user.cpp",
                 "-o",
                 "${fileDirname}\\${fileBasenameNoExtension}.exe"
             ],

@@ -1,9 +1,10 @@
-#include "student.h"
+#include "student_manager.h"
+#include <iostream>
 using namespace std;
 
 
 
-void StudentManager::getAllStudents(const vector<Student>& students) const {
+void StudentManager::getAllStudents(const vector<Student>& students)  {
     this->students = students;
 }
 
@@ -42,4 +43,14 @@ Student StudentManager::getStudent(const vector<Student>& students, const string
     }
     cout << "Student with ID " << studentId << " not found." << endl;
     return Student("", "", "", "", "", "", "", ""); // 返回一个空的学生对象
+}
+
+void StudentManager::printStudentInfo(const Student& student) const {
+    cout << "Name: " << student.getName() << endl;
+    cout << "Email: " << student.getEmail() << endl;
+    cout << "User ID: " << student.getUserid() << endl;
+    cout << "Major: " << student.getMajor() << endl;
+    cout << "Student ID: " << student.getStudentId() << endl;
+    cout << "Class Name: " << student.getClassName() << endl;
+    cout << "Grade: " << student.getGrade() << endl;
 }
