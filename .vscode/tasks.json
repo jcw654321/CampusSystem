@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cl: build current project (MSVC x64)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\build.cmd",
+            "args": [
+                "${fileDirname}"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "detail": "用 MSVC 编译当前 .cpp 所在目录下的全部源文件"
+        }
+    ]
+}

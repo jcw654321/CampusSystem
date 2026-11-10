@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(CampusBank LANGUAGES CXX)
+add_executable(bank main.cpp BankAccount.cpp SavingAccount.cpp CreditAccount.cpp Banksystem.cpp BanksystemFile.cpp)
+target_compile_features(bank PRIVATE cxx_std_17)
+if(MSVC)
+    target_compile_options(bank PRIVATE /utf-8)
+endif()
