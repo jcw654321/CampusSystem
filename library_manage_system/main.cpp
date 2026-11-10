@@ -9,6 +9,8 @@ using namespace std;
 int main()
 {
     SetConsoleOutputCP(CP_UTF8); // 设置控制台输出为UTF-8编码
-    LibrarySystem lib("");
+    SetConsoleCP(CP_UTF8);
+    cout<<today()<<endl;
+    LibrarySystem lib("data/library.txt");
     lib.showMenu();
 }

@@ -10,3 +10,4 @@ bool isDateValid(string date);                             //用于判断日期�
 bool parseDate(const string& date, Date& parsedDate);      // 解析日期字符串为Date结构体
 bool compareDate(const string& date1,const string& date2); // 比较两个日期字符串的大小
 bool addDays(string& date,int daynum);
+string today();

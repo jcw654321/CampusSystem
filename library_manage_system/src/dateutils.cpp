@@ -1,5 +1,6 @@
 #include <dateutils.h>
 #include <cstdio>
+#include<ctime>
 int getMaxDay(int year, int month)
 {
     int dayofmonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -135,3 +136,20 @@ bool addDays(string &date, int daynum)
     date = dateadded;
     return true;
 }
+
+string today()
+{
+    time_t now = time(nullptr);
+    tm localtime= {};
+    localtime_s(&localtime,&now);
+    char buf[16];
+    strftime(buf,sizeof(buf),"%Y-%m-%d",&localtime);
+    string strToday = buf;
+    return strToday;
+}
+
+
+
+
+
+

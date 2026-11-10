@@ -7,8 +7,8 @@ using namespace std;
 class LoanRecord{
 public:
     LoanRecord() = default;
-    LoanRecord(string loanId, string studentId, string bookId, string borrowDate, string returnDate, string duedate, string operatorId)
-        : loanId(loanId), studentId(studentId), bookId(bookId), borrowDate(borrowDate), returnDate(returnDate), duedate(duedate), operatorId(operatorId) {}
+    LoanRecord(string loanId, string studentId, string bookId, string borrowDate, string returnDate, string duedate)
+        : loanId(loanId), studentId(studentId), bookId(bookId), borrowDate(borrowDate), returnDate(returnDate), duedate(duedate) {}
 
         bool isreturned() const;
         bool isoverdue(const string& currentDate) const;  // 判断是否逾期
@@ -21,7 +21,6 @@ public:
         string getBorrowDate() const { return borrowDate; }
         string getReturnDate() const { return returnDate; }
         string getDuedate() const { return duedate; }
-        string getOperatorId() const { return operatorId; }
        
 
     private:
@@ -31,5 +30,4 @@ public:
     string borrowDate;         // 借阅日期
     string returnDate;         // 归还日期,未归还置空
     string duedate;            // 归还截止日期
-    string operatorId;         // 操作员
 };

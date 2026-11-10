@@ -45,8 +45,8 @@ bool LoanRecord::markasreturned(const string& returnDate) {
 
 void LoanRecord::displayLoanRecordInfo() const {
    if(isreturned()){
-     cout<<"借阅记录编号: "<<loanId<<" "<<"学生编号: "<<studentId<<" "<<"图书编号: "<<bookId<<" "<<"借阅日期: "<<borrowDate<<" "<<"归还日期: "<<returnDate<<" "<<"归还截止日期: "<<duedate<<" "<<"操作员: "<<operatorId<<endl;   
+     cout<<"借阅记录编号: "<<loanId<<" "<<"学生编号: "<<studentId<<" "<<"图书编号: "<<bookId<<" "<<"借阅日期: "<<borrowDate<<" "<<"归还日期: "<<returnDate<<" "<<"归还截止日期: "<<duedate<<endl;   
    } else {
-     cout<<"借阅记录编号: "<<loanId<<" "<<"学生编号: "<<studentId<<" "<<"图书编号: "<<bookId<<" "<<"借阅日期: "<<borrowDate<<" "<<"归还截止日期: "<<duedate<<" "<<"尚未归还! 操作员: "<<operatorId<<endl;
+     cout<<"借阅记录编号: "<<loanId<<" "<<"学生编号: "<<studentId<<" "<<"图书编号: "<<bookId<<" "<<"借阅日期: "<<borrowDate<<" "<<"尚未归还! 归还截止日期: "<<duedate<<endl;
    }
 }
