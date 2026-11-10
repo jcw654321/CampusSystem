@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <filesystem>
 using namespace std;
 // 第一批函数:查询类
 bool toLowerAscii(string &str) // 将大写字母统一转为小写
@@ -330,7 +331,7 @@ int LibrarySystem::getLoanCount() const
 
 bool LibrarySystem::getLoanAtIndex(int index, LoanRecord &outloan) const
 {
-    if (index < 0 || index  >=static_cast<int>(loans.size()) )
+    if (index < 0 || index >= static_cast<int>(loans.size()))
     {
         return false;
     }
@@ -416,6 +417,181 @@ vector<int> LibrarySystem::overdueLoans(const string &today) const
     return result;
 }
 
+// 第四批函数:持久化(与文件读写相关)
+bool LibrarySystem::saveData(string &reason)
+{
+    filesystem::create_directories("data");
+    ofstream out(dataFile);
+    if (!out.is_open())
+    {
+        reason = "无法打开文件: " + dataFile;
+        return false;
+    }
+    for (auto &book : books)
+    {
+        out << "BOOK|" << book.getBookId() << '|' << book.getTitle() << '|' << book.getAuthor() << '|' << book.getCategory() << '|' << book.getTotalCopies() << '|' << (book.getStatus() == BookStatus::ON_SHELF ? 1 : 0) << '\n';
+    }
+    for (auto &loan : loans)
+    {
+        out << "LOAN|" << loan.getLoanId() << '|' << loan.getStudentId() << '|' << loan.getBookId() << '|' << loan.getBorrowDate() << '|' << loan.getReturnDate() << '|' << loan.getDuedate() << '\n';
+    }
+    out << "NEXT|" << nextLoanSeq << '\n'; // 记录下一个借阅序号
+    if (!out)
+    {
+        reason = "无法写入文件: " + dataFile;
+        return false;
+    }
+    out.close();
+    return true;
+}
+
+vector<string> splitLine(const string &line, char delim)
+{
+    vector<string> result;
+    string token;
+    stringstream ss(line);
+    while (getline(ss, token, delim))
+    {
+        result.push_back(token);
+    }
+    if (!line.empty() && line.back() == delim)
+    {
+        result.push_back(""); // 处理最后一个元素为分隔符的情况
+    }
+    return result;
+}
+
+bool LibrarySystem::loadData(string &reason)
+{
+    ifstream in(dataFile);
+    if (!in.is_open())
+    {
+        if (!filesystem::exists(dataFile))
+            return true;
+        reason = "无法打开文件: " + dataFile;
+        return false;
+    }
+
+    vector<Book> tmpBooks;
+    vector<LoanRecord> tmpLoans;
+    int tmpNext = 1;
+    int curLineNum = 0;
+    string line;
+
+    while (getline(in, line))
+    {
+        curLineNum++;
+        if (line.empty())
+        {
+            continue;
+        }
+        vector<string> vec = splitLine(line, '|');
+        if (vec[0] == "BOOK")
+        {
+            if (vec.size() < 7)
+            {
+                reason = "第" + to_string(curLineNum) + "行数据格式错误";
+                return false;
+            }
+            string bookId, bookName, author, category, totalNum, bs;
+            bookId = vec[1];
+            bookName = vec[2];
+            author = vec[3];
+            category = vec[4];
+            totalNum = vec[5];
+            bs = vec[6];
+            stringstream cs(totalNum);
+            int totalCopies;
+            if (!(cs >> totalCopies))
+            {
+                reason = "第" + to_string(curLineNum) + "数字格式错误";
+                return false;
+            }
+            stringstream cs1(bs);
+            int bookStatusNum;
+            if (!(cs1 >> bookStatusNum))
+            {
+                reason = "第" + to_string(curLineNum) + "数字格式错误";
+                return false;
+            }
+            if (bookStatusNum == 1)
+            {
+                tmpBooks.push_back(Book(bookId, bookName, author, category, BookStatus::ON_SHELF, totalCopies));
+            }
+            else if (bookStatusNum == 0)
+            {
+                tmpBooks.push_back(Book(bookId, bookName, author, category, BookStatus::OUT_SHELF, totalCopies));
+            }
+            else
+            {
+                reason = "第" + to_string(curLineNum) + "数字格式错误";
+                return false;
+            }
+        }
+        else if (vec[0] == "LOAN")
+        {
+            if (vec.size() < 7)
+            {
+                reason = "第" + to_string(curLineNum) + "行数据格式错误";
+                return false;
+            }
+            string loanId, studentId, bookId, borrowDate, returnDate, dueDate;
+            loanId = vec[1];
+            studentId = vec[2];
+            bookId = vec[3];
+            borrowDate = vec[4];
+            returnDate = vec[5];
+            dueDate = vec[6];
+            tmpLoans.push_back(LoanRecord(loanId, studentId, bookId, borrowDate, returnDate, dueDate));
+        }
+        else if (vec[0] == "NEXT")
+        {
+            if (vec.size() < 2)
+            {
+                reason = "第" + to_string(curLineNum) + "行数据格式错误";
+                return false;
+            }
+            stringstream ss(vec[1]);
+            if (!(ss >> tmpNext))
+            {
+                reason = "第" + to_string(curLineNum) + "行数据格式错误";
+                return false;
+            }
+        }
+        else
+        {
+            reason = "第" + to_string(curLineNum) + "类型未知";
+            return false;
+        }
+    }
+    int maxSeq = 0;
+    for (const LoanRecord &l : tmpLoans)
+    {
+        const string &id = l.getLoanId();
+        if (id.size() > 1)
+        {
+            string num = id.substr(1);
+            stringstream ls(num);
+            int seq = 0;
+            if (ls >> seq)
+            {
+                if (seq > maxSeq)
+                {
+                    maxSeq = seq;
+                }
+            }
+        }
+    }
+    if (maxSeq + 1 > tmpNext)
+    {
+        tmpNext = maxSeq + 1;
+    }
+    books = tmpBooks;
+    loans = tmpLoans;
+    nextLoanSeq = tmpNext;
+    return true;
+}
+
 void LibrarySystem::showMenu()
 {
     while (true)
@@ -483,6 +659,10 @@ void LibrarySystem::showMenu()
             if (addBook(Book(bookID, bookName, author, categroy, BookStatus::ON_SHELF, count), reason))
             {
                 cout << "添加成功!" << endl;
+                if (!saveData(reason))
+                {
+                    cout << "保存失败!" << reason << endl;
+                }
             }
             else
             {
@@ -595,6 +775,10 @@ void LibrarySystem::showMenu()
             if (updateBook(bookid, title, author, category, reason))
             {
                 cout << "更新成功" << endl;
+                if (!saveData(reason))
+                {
+                    cout << "保存失败!" << reason << endl;
+                }
                 break;
             }
             else
@@ -639,6 +823,10 @@ void LibrarySystem::showMenu()
                 break;
             }
             cout << "调整成功" << endl;
+            if (!saveData(reason))
+            {
+                cout << "保存失败!" << reason << endl;
+            }
             break;
         }
 
@@ -654,7 +842,7 @@ void LibrarySystem::showMenu()
                 cout << "未找到该书籍!" << endl;
                 break;
             }
-            cout << "请输入数字以调整:0表示上架,1表示下架" << endl;
+            cout << "请输入数字以调整:0表示下架,1表示上架" << endl;
             string num;
             getline(cin, num);
             stringstream ss(num);
@@ -664,11 +852,15 @@ void LibrarySystem::showMenu()
                 cout << "输入错误!" << endl;
                 break;
             }
-            else if (n == 0)
+            else if (n == 1)
             {
                 if (setBookStatus(bookId, BookStatus::ON_SHELF, reason))
                 {
                     cout << "调整成功!" << endl;
+                    if (!saveData(reason))
+                    {
+                        cout << "保存失败!" << reason << endl;
+                    }
                     break;
                 }
                 else
@@ -677,11 +869,15 @@ void LibrarySystem::showMenu()
                     break;
                 }
             }
-            else if (n == 1)
+            else if (n == 0)
             {
                 if (setBookStatus(bookId, BookStatus::OUT_SHELF, reason))
                 {
                     cout << "调整成功!" << endl;
+                    if (!saveData(reason))
+                    {
+                        cout << "保存失败!" << reason << endl;
+                    }
                     break;
                 }
                 else
@@ -709,6 +905,10 @@ void LibrarySystem::showMenu()
             if ((borrowBook(bookId, studentId, date, reason)))
             {
                 cout << "借书成功!" << endl;
+                if(!saveData(reason))
+                {
+                    cout << "保存失败!" << reason << endl;
+                }
                 break;
             }
             else
@@ -729,6 +929,10 @@ void LibrarySystem::showMenu()
             if ((returnBook(loanId, date, reason)))
             {
                 cout << "还书成功!" << endl;
+                if(!saveData(reason))
+                {
+                    cout << "保存失败!" << reason << endl;
+                }
                 break;
             }
             else
