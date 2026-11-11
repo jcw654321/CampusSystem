@@ -29,7 +29,6 @@ void StudentManager::updateStudent(vector<Student>& students, const Student& stu
             s.setPassword(student.getPassword());
             s.setMajor(student.getMajor());
             s.setClassName(student.getClassName());
-            s.setGrade(student.getGrade());
             return;
         }
     }
@@ -42,7 +41,7 @@ Student StudentManager::getStudent(const vector<Student>& students, const string
         }
     }
     cout << "Student with ID " << studentId << " not found." << endl;
-    return Student("", "", "", "", "", "", "", ""); // 返回一个空的学生对象
+    return Student("", "", "", "", "", "", ""); // 返回一个空的学生对象
 }
 
 void StudentManager::printStudentInfo(const Student& student) const {
@@ -52,5 +51,4 @@ void StudentManager::printStudentInfo(const Student& student) const {
     cout << "Major: " << student.getMajor() << endl;
     cout << "Student ID: " << student.getStudentId() << endl;
     cout << "Class Name: " << student.getClassName() << endl;
-    cout << "Grade: " << student.getGrade() << endl;
 }
