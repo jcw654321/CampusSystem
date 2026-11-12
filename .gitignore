@@ -1,0 +1,38 @@
+# C++ 编译产物
+*.o
+*.obj
+*.exe
+*.out
+*.dll
+*.lib
+*.a
+*.pdb
+*.ilk
+*.gch
+*.pch
+
+# CMake
+build/
+Build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+
+.vscode/
+*.code-workspace
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
+
+# 临时、日志、备份
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# vcpkg
+vcpkg_installed/
