@@ -5,10 +5,10 @@
             "name": "C/C++ MSVC: build and debug active file",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${fileDirname}\\build\\main.exe",
+            "program": "${workspaceFolder}\\library_manage_system\\build\\main.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${workspaceFolder}\\library_manage_system",
             "environment": [],
             "console": "integratedTerminal",
             "preLaunchTask": "cl: build current project (MSVC x64)"

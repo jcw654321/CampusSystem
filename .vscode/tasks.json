@@ -6,10 +6,10 @@
             "type": "shell",
             "command": "${workspaceFolder}\\build.cmd",
             "args": [
-                "${fileDirname}"
+                "${workspaceFolder}\\library_manage_system"
             ],
             "options": {
-                "cwd": "${fileDirname}"
+                "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [
                 "$msCompile"
