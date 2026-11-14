@@ -1,4 +1,14 @@
+<<<<<<< HEAD
 *.exe
 *.o
 *.out
 .vscode/
+=======
+# 编译产物（不要提交到仓库）
+build/
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.rsp
+>>>>>>> df1306ae2b1c5ac2674c48349cbadd5bc1e5e5b6

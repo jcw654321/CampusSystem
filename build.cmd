@@ -42,7 +42,7 @@ set /a N=0
 for /f "usebackq delims=" %%l in ("%RSP%") do set /a N+=1
 echo Building %N% source file(s) in %CD% ...
 
-cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /I. /Iinclude /Fo"%OUT%\\" /Fe"%OUT%\main.exe" @"%RSP%"
+cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /I. /Iinclude /Fo"%OUT%\\" /Fd"%OUT%\vc140.pdb" /Fe"%OUT%\main.exe" @"%RSP%"
 if errorlevel 1 (
     echo.
     echo [FAILED] compile or link error, see messages above
