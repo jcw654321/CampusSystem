@@ -2,10 +2,13 @@
 #include <filesystem>
 #include <iostream>
 #include <system_error>
+#include<windows.h>
 
 using namespace std;
 
 int main() {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
     Banksystem bankSystem;
     error_code ec;
     bool hasFile = filesystem::exists("accounts.txt", ec);
