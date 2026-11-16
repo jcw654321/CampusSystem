@@ -11,6 +11,8 @@
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/winrt",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/cppwinrt",
+                "D:/c++/VC/Auxiliary/VS/include",
+                "${workspaceFolder}/library_manage_system/include",
                 "${workspaceFolder}/student_manage_system/include"
             ],
             "defines": [
