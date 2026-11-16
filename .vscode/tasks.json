@@ -1,0 +1,51 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cl: build current project (MSVC x64)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\build.cmd",
+            "args": [
+                "${workspaceFolder}\\library_manage_system"
+            ],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [ "$msCompile" ],
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "detail": "编译 library_manage_system（图书管理）"
+        },
+        {
+            "label": "cl: build student (MSVC x64)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\student_manage_system\\build_student.cmd",
+            "options": { "cwd": "${workspaceFolder}\\student_manage_system" },
+            "problemMatcher": [ "$msCompile" ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "detail": "编译 student_manage_system（学生管理）"
+        },
+        {
+            "label": "cl: build bank (MSVC x64)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\build.cmd",
+            "args": [
+                "${workspaceFolder}\\bank_manage_system"
+            ],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [ "$msCompile" ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "detail": "编译 bank_manage_system（银行管理）"
+        },
+        {
+            "label": "cl: build gui (MSVC x64)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\gui_library_system\\build_gui.cmd",
+            "options": { "cwd": "${workspaceFolder}\\gui_library_system" },
+            "problemMatcher": [ "$msCompile" ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "detail": "编译 gui_library_system（EasyX 图形界面）"
+        }
+    ]
+}
