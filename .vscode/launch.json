@@ -5,10 +5,10 @@
             "name": "C/C++ MSVC: 图书管理 (library)",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}\\library_manage_system\\build\\main.exe",
+            "program": "${workspaceFolder}\\student_manage_system\\build\\main.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\library_manage_system",
+            "cwd": "${workspaceFolder}\\student_manage_system",
             "environment": [],
             "console": "integratedTerminal",
             "preLaunchTask": "cl: build current project (MSVC x64)"
