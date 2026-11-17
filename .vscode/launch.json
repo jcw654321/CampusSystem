@@ -5,10 +5,10 @@
             "name": "C/C++ MSVC: 图书管理 (library)",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}\\student_manage_system\\build\\main.exe",
+            "program": "${workspaceFolder}\\library_manage_system\\build\\main.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\student_manage_system",
+            "cwd": "${workspaceFolder}\\library_manage_system",
             "environment": [],
             "console": "integratedTerminal",
             "preLaunchTask": "cl: build current project (MSVC x64)"
@@ -36,6 +36,18 @@
             "environment": [],
             "console": "integratedTerminal",
             "preLaunchTask": "cl: build bank (MSVC x64)"
+        },
+        {
+            "name": "C/C++ MSVC: 图书管理 GUI (EasyX)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}\\gui_library_system\\build\\gui.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}\\library_manage_system",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": "cl: build gui (MSVC x64)"
         }
     ]
 }
