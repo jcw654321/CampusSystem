@@ -1,13 +1,54 @@
+# C/C++ compiled binaries
 *.exe
-*.o
 *.out
+*.o
+*.obj
+*.dll
+*.lib
+*.a
+*.so
+
+# MSVC / Visual Studio
+.vs/
 .vscode/
 !.vscode/tasks.json
-# 编译产物（不要提交到仓库）
-build/
-*.obj
-*.exe
 *.pdb
 *.ilk
-*.rsp
+*.idb
+*.exp
+*.map
+*.tlog
+*.log
+*.tmp
+*.aps
+*.ncb
+*.opendb
+*.db
+*.VC.db
+*.user
+*.suo
+*.vcxproj.user
+*.vcxproj.filters
+*.sln.docstates
 
+# Build output directories
+build/
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+out/
+cmake-build-*/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+Makefile
+*.cmake
+
+# Local temporary files
+*.bak
+*.orig
+*.swp
