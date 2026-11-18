@@ -12,6 +12,11 @@
 .vs/
 .vscode/
 !.vscode/tasks.json
+*.cmd
+# 编译产物（不要提交到仓库）
+build/
+*.obj
+*.exe
 *.pdb
 *.ilk
 *.idb

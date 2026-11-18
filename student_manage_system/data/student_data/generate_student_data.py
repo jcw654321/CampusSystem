@@ -8,7 +8,7 @@ GIVEN_NAMES = ["伟", "芳", "娜", "敏", "静", "强", "磊", "军", "洋", "�
 MAJORS = ["计算机科学与技术", "软件工程", "信息管理", "网络工程", "数据科学"]
 
 
-def generate_users(count=100):
+def generate_users(count=50):
     users = []
     for number in range(1, count + 1):
         index = number - 1
