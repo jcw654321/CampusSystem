@@ -1,6 +1,7 @@
 #include <graphics.h>
 #include <windows.h>
 #include <string>
+#include <vector>
 #include <wchar.h>
 #include "library_system.h"
 
@@ -23,6 +24,8 @@ std::string reason = "";
 int selectedBook = -1; // 当前选中书本下标
 std::wstring libTip;   // 图书页面底部提示信息
 COLORREF libTipColor = RGB(200, 40, 40);
+std::vector<int> shownIndex; // 记录表格第i行代表的书在books里面的下标
+int scrollFirst = 0;         // 从第几本开始显示(用于滚轮滑动设计)
 
 // 将UTF-8字符转为easyx支持的宽字符类型
 std::wstring toWstring(const std::string &s)
@@ -46,6 +49,19 @@ std::string toString(const std::wstring &w)
     WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, &s[0], n, nullptr, nullptr);
     s.pop_back();
     return s;
+}
+
+// 重置函数
+void resetShown()
+{
+    shownIndex.clear();
+
+    for (int i = 0; i < lib->getBookCount(); i++)
+    {
+        shownIndex.push_back(i);
+    }
+
+    scrollFirst = 0;
 }
 
 // 背景绘制相关函数
@@ -207,10 +223,16 @@ void drawLibraryPage()
     outtextxy(940, 190, L"状态");
 
     // 数据
-    int count = lib->getBookCount();
+    int total = static_cast<int>(shownIndex.size());
+    int rows = total - scrollFirst; // 除去已经划过的行后剩余的行数,由于最多显示10本书,所以当他大于10要改为10
+    if (rows > 10)
+        rows = 10; // 最多显示10本书
 
-    for (int i = 0; i < count && i < 10; i++) // 最多显示10本书
+    for (int row = 0; row < rows; row++) // 最多显示10本书
     {
+        int i = shownIndex[scrollFirst + row]; // 本行书对应真实下标
+        int y = 216 + row * 38;
+
         Book b;
         if (!lib->getBookAtIndex(i, b))
             continue;
@@ -220,25 +242,26 @@ void drawLibraryPage()
         } // 选中行以蓝色标记
         else
             setfillcolor(RGB(255, 255, 255));
-        fillrectangle(60, 216 + i * 38, 1140, 216 + i * 38 + 38);
+        fillrectangle(60, y, 1140, y + 38);
 
         settextcolor(RGB(33, 37, 41));
         settextstyle(16, 0, L"微软雅黑");
 
-        outtextxy(80, 216 + i * 38 + 10, toWstring(b.getBookId()).c_str());
-        outtextxy(200, 216 + i * 38 + 10, toWstring(b.getTitle()).c_str());
-        outtextxy(480, 216 + i * 38 + 10, toWstring(b.getAuthor()).c_str());
-        outtextxy(640, 216 + i * 38 + 10, toWstring(b.getCategory()).c_str());
+        outtextxy(80, y + 10, toWstring(b.getBookId()).c_str());
+        outtextxy(200, y + 10, toWstring(b.getTitle()).c_str());
+        outtextxy(480, y + 10, toWstring(b.getAuthor()).c_str());
+        outtextxy(640, y + 10, toWstring(b.getCategory()).c_str());
 
         std::wstring num = std::to_wstring(b.getTotalCopies()) + L" / " + std::to_wstring(lib->availableCopies(b.getBookId()));
-        outtextxy(780, 216 + i * 38 + 10, num.c_str());
-        outtextxy(940, 216 + i * 38 + 10, b.isonshelf() ? L"上架" : L"已下架");
+        outtextxy(780, y + 10, num.c_str());
+        outtextxy(940, y + 10, b.isonshelf() ? L"上架" : L"已下架");
     }
     // 底部,三个按钮借书还书刷新
     setfillcolor(RGB(0, 63, 136));
     fillroundrect(60, 620, 180, 660, 8, 8);
     fillroundrect(200, 620, 320, 660, 8, 8);
     fillroundrect(340, 620, 460, 660, 8, 8);
+    fillroundrect(480, 620, 600, 660, 8, 8);
 
     settextcolor(RGB(255, 255, 255));
     settextstyle(18, 0, L"微软雅黑");
@@ -246,6 +269,7 @@ void drawLibraryPage()
     outtextxy(60 + (120 - textwidth(L"借  书")) / 2, 628, L"借  书");
     outtextxy(200 + (120 - textwidth(L"还  书")) / 2, 628, L"还  书");
     outtextxy(340 + (120 - textwidth(L"刷  新")) / 2, 628, L"刷  新");
+    outtextxy(480 + (120 - textwidth(L"搜  索")) / 2, 628, L"搜  索");
 
     // 提示
     if (!libTip.empty())
@@ -305,6 +329,7 @@ int main()
     {
         MessageBoxA(GetHWnd(), reason.c_str(), "加载失败", MB_OK);
     }
+    resetShown();
     drawAll();
 
     ExMessage msg;
@@ -379,6 +404,7 @@ int main()
                         page = Page::Library;
                         selectedBook = -1;
                         libTip.clear();
+                        resetShown();
                         drawAll();
                     }
                 }
@@ -389,6 +415,7 @@ int main()
                     RECT borrowR = {60, 620, 180, 660};
                     RECT returnR = {200, 620, 320, 660};
                     RECT refreshR = {340, 620, 460, 660};
+                    RECT searchR = {480, 620, 600, 660};
                     if (PtInRect(&backR, p))
                     {
                         page = Page::Select;
@@ -396,10 +423,14 @@ int main()
                     }
                     else if (PtInRect(&tableR, p))
                     {
+                        int total = static_cast<int>(shownIndex.size());
+                        int rows = total - scrollFirst;
+                        if (rows > 10)
+                            rows = 10;
                         int row = (p.y - 216) / 38;
-                        if (row < lib->getBookCount())
+                        if (row >= 0 && row < rows)
                         {
-                            selectedBook = row;
+                            selectedBook = shownIndex[scrollFirst + row];
                             drawAll();
                         }
                     }
@@ -446,7 +477,7 @@ int main()
                             }
                         }
                     }
-                    else if (PtInRect(&returnR, p))
+                    else if (PtInRect(&returnR, p)) // 先查看未归还记录再还书
                     {
                         wchar_t buf[64] = L"";
                         if (InputBox(buf, 64, L"请输入学号"))
@@ -459,29 +490,118 @@ int main()
                             }
                             else
                             {
-                                vector<int> loansOfStIndex = lib->loansOfStudent(stuid);
-                                
-                                if (loansOfStIndex.empty())
+                                std::vector<int> loansOfStIndex = lib->loansOfStudent(stuid);
+                                std::wstring w;
+
+                                for (size_t i = 0; i < loansOfStIndex.size(); i++)
                                 {
-                                    libTip = L"该学生没有借阅记录";
-                                    libTipColor = RGB(30, 140, 70);
+                                    LoanRecord l;
+                                    if (!lib->getLoanAtIndex(loansOfStIndex[i], l))
+                                        continue;
+                                    if (l.isreturned())
+                                        continue;
+
+                                    w += toWstring(l.getLoanId()) + L"    " + toWstring(l.getBookId()) + L"    " + toWstring(l.getDuedate()) + L"\r\n";
+                                }
+
+                                if (w.empty())
+                                {
+                                    libTip = L"该学生没有未归还的借阅记录";
+                                    libTipColor = RGB(200, 40, 40);
                                 }
                                 else
                                 {
-
+                                    MessageBox(GetHWnd(), w.c_str(), L"未归还记录", MB_OK | MB_ICONINFORMATION);
+                                    wchar_t buf1[32] = L"";
+                                    if (InputBox(buf1, 32, L"请输入借阅编号", L"还书"))
+                                    {
+                                        std::string loanId = toString(buf1);
+                                        bool f = false; // 用于判断这个借阅编号是否属于该学生
+                                        for (int idx : loansOfStIndex)
+                                        {
+                                            LoanRecord lr;
+                                            lib->getLoanAtIndex(idx, lr);
+                                            if (!lr.isreturned() && lr.getLoanId() == loanId)
+                                            {
+                                                f = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!f)
+                                        {
+                                            libTip = L"该编号不属于该学生的借阅记录";
+                                            libTipColor = RGB(200, 40, 40);
+                                        }
+                                        else if (lib->returnBook(loanId, today(), reason))
+                                        {
+                                            lib->saveData(reason);
+                                            libTip = L"还书成功";
+                                            libTipColor = RGB(30, 140, 70);
+                                        }
+                                        else
+                                        {
+                                            libTip = toWstring(reason);
+                                            libTipColor = RGB(200, 40, 40);
+                                        }
+                                    }
                                 }
                             }
+                            drawAll();
                         }
                     }
                     else if (PtInRect(&refreshR, p))
                     {
                         lib->loadData(reason);
+                        resetShown();
                         selectedBook = -1;
+                        scrollFirst = 0;
                         libTip = L"已刷新";
                         libTipColor = RGB(30, 140, 70);
                         drawAll();
                     }
+                    else if (PtInRect(&searchR, p))
+                    {
+                        wchar_t buf[64] = L"";
+                        if (InputBox(buf, 64, L"请输入搜索关键词", L"搜索"))
+                        {
+                            std::string key = toString(buf);
+                            std::vector<int> matchedBooks = lib->searchByTitle(key);
+                            shownIndex.clear();
+                            for (size_t i = 0; i < matchedBooks.size(); i++)
+                            {
+                                shownIndex.push_back(matchedBooks[i]);
+                            }
+                            scrollFirst = 0;
+                            selectedBook = -1;
+                            if (matchedBooks.empty())
+                            {
+                                libTip = L"未找到匹配的书";
+                                libTipColor = RGB(200, 40, 40);
+                            }
+                            else
+                            {
+                                libTip = L"找到 " + std::to_wstring(matchedBooks.size()) + L" 本";
+                                libTipColor = RGB(30, 140, 70);
+                            }
+                        }
+                        drawAll();
+                    }
                 }
+            }
+
+            if (msg.message == WM_MOUSEWHEEL && page == Page::Library)
+            {
+                int total = static_cast<int>(shownIndex.size()); // 当前列表行数
+                int maxTop = total > 10 ? total - 10 : 0;        // 最多能划到的行数,比如列表有23行,0-22,那么最多只能划到第13行,再往下划就显示不满10行了
+                if (msg.wheel > 0 && scrollFirst > 0)
+                {
+                    scrollFirst--;
+                }
+                else if (msg.wheel < 0 && scrollFirst < maxTop)
+                {
+                    scrollFirst++;
+                }
+                drawAll();
             }
         }
         Sleep(10);
