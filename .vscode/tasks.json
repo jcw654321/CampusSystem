@@ -116,6 +116,34 @@
             },
             "detail": "编译 gui_library_system（EasyX 图形界面）"
         },
+         {
+            "label": "cl: build student_gui (MSVC x64)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\gui_student_system\\build_gui.cmd",
+            "options": {
+                "cwd": "${workspaceFolder}\\gui_student_system",
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "detail": "编译 gui_student_system（EasyX 图形界面）"
+        },
         {
             "type": "cppbuild",
             "label": "C/C++: g++.exe build active file",

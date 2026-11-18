@@ -16,26 +16,23 @@ COURSES = [
     ("数据库原理", "C008", "周老师")
 ]
 
+script_dir = Path(__file__).resolve().parent
+student_file_path = script_dir.parent / "student_data" / "student_data.csv"
+data_dir = script_dir
 
 def main():
-    data_dir = Path(__file__).parent
-    student_file = data_dir.parent / "student_data.csv"
-
-    if not student_file.exists():
-        raise FileNotFoundError(f"找不到学生数据文件：{student_file}")
-
-    with student_file.open("r", encoding="utf-8-sig", newline="") as file:
+    with open(student_file_path, "r", encoding="utf-8-sig", newline="") as file:
         students = list(csv.DictReader(file))
 
     rng = random.Random(2026)
 
     for student in students:
-        user_id = (student.get("用户ID") or "").strip()
+        user_id = (student.get("学号") or "").strip()
         if not user_id:
-            raise ValueError("学生数据中存在空的用户ID")
+            raise ValueError("学生数据中存在空的学号")
 
         if user_id in {".", ".."} or any(char in user_id for char in '<>:"/\\|?*'):
-            raise ValueError(f"用户ID不能用作文件名：{user_id}")
+            raise ValueError(f"学号不能用作文件名：{user_id}")
 
         output_file = data_dir / f"{user_id}.csv"
         with output_file.open("w", encoding="utf-8-sig", newline="") as file:
