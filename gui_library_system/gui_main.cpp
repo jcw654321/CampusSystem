@@ -282,6 +282,7 @@ void drawLibraryPage()
 
 void drawSelectPage()
 {
+    
     setbkmode(TRANSPARENT);
     settextcolor(RGB(108, 117, 125));
     settextstyle(20, 0, L"微软雅黑");
@@ -292,6 +293,8 @@ void drawSelectPage()
     drawCard(110, 235, L"学生管理");
     drawCard(455, 235, L"图书管理");
     drawCard(800, 235, L"银行管理");
+    
+
 }
 
 void drawAll()
@@ -312,15 +315,19 @@ void drawAll()
     }
 
     drawFooter();
+    FlushBatchDraw();
 }
 
 int main()
 {
     initgraph(1200, 760);
     SetWindowTextW(GetHWnd(), L"校园综合管理系统");
+    SetWindowPos(GetHWnd(),nullptr,(GetSystemMetrics(SM_CXSCREEN)-1200)/2,(GetSystemMetrics(SM_CYSCREEN)-760)/2-100,0,0,SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
 
     setbkcolor(RGB(230, 236, 245));
     cleardevice();
+
+    BeginBatchDraw();//双缓冲绘图,防止屏幕一闪一闪,会先绘制到缓冲区,通过flush来推到主屏幕上
 
     LibrarySystem lib_("data/library.txt");
     lib = &lib_;
@@ -606,6 +613,7 @@ int main()
         }
         Sleep(10);
     }
+    EndBatchDraw();
     closegraph();
     return 0;
 }
