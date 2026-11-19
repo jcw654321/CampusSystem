@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <limits>
@@ -97,6 +98,8 @@ constexpr COLORREF Blue = RGB(0, 63, 136);
 constexpr COLORREF Ink = RGB(33, 37, 41);
 constexpr COLORREF Muted = RGB(108, 117, 125);
 constexpr int Rows = 8;
+constexpr std::array<int, 5> ColumnX = {80, 320, 550, 710, 950};
+constexpr std::array<int, 5> ColumnWidths = {220, 210, 140, 220, 170};
 
 Banksystem bank;
 bool history = false;
@@ -264,6 +267,51 @@ void refresh()
         : static_cast<int>((shown.size() - 1) / Rows) * Rows;
     first = std::min(first, lastPageStart);
 }
+
+void resetPage()
+{
+    first = 0;
+    refresh();
+}
+
+void filterAccounts(const std::wstring& value)
+{
+    keyword = value;
+    selected.clear();
+    resetPage();
+}
+
+void showAccounts()
+{
+    history = false;
+    resetPage();
+}
+
+void showAllAccounts()
+{
+    history = false;
+    filterAccounts(L"");
+}
+
+void searchAccounts(const std::wstring& value)
+{
+    history = false;
+    filterAccounts(value);
+}
+
+void showAllHistory()
+{
+    selected.clear();
+    history = true;
+    resetPage();
+}
+
+void scrollPage(int offset)
+{
+    first = std::max(0, first + offset);
+    refresh();
+}
+
 void text(int x, int y, const std::wstring& s, int size = 18, COLORREF color = Ink)
 {
     settextstyle(size, 0, L"微软雅黑");
@@ -350,7 +398,6 @@ void drawTableHeader()
     setfillcolor(RGB(245, 248, 252));
     solidrectangle(60, 222, 1140, 262);
 
-    const int columns[] = {80, 320, 550, 710, 950};
     const wchar_t* accountHeaders[] = {
         L"账号", L"关联学号", L"账户类型", L"余额（元）", L"信用额度（元）"
     };
@@ -363,30 +410,34 @@ void drawTableHeader()
         const wchar_t* header = history
             ? historyHeaders[column]
             : accountHeaders[column];
-        text(columns[column], 233, header, 16, Muted);
+        text(ColumnX[column], 233, header, 16, Muted);
     }
+}
+
+void drawTableRow(const std::array<std::wstring, 5>& values, int y)
+{
+    for (size_t column = 0; column < values.size(); ++column)
+    {
+        cell(ColumnX[column], y + 10, ColumnWidths[column], values[column]);
+    }
+}
+
+std::wstring displayAccountId(const std::string& accountId)
+{
+    return accountId.empty() ? L"—" : wide(accountId);
 }
 
 void drawHistoryRow(size_t index, int y)
 {
     const auto& transaction = bank.transactions[index];
-    cell(80, y + 10, 220, std::to_wstring(index + 1));
-    cell(320, y + 10, 210, wide(transaction.type));
-    cell(550, y + 10, 140, moneyText(transaction.amount));
-    cell(
-        710,
-        y + 10,
-        220,
-        transaction.fromAccountId.empty()
-            ? L"—"
-            : wide(transaction.fromAccountId));
-    cell(
-        950,
-        y + 10,
-        170,
-        transaction.toAccountId.empty()
-            ? L"—"
-            : wide(transaction.toAccountId));
+    std::array<std::wstring, 5> values = {
+        std::to_wstring(index + 1),
+        wide(transaction.type),
+        moneyText(transaction.amount),
+        displayAccountId(transaction.fromAccountId),
+        displayAccountId(transaction.toAccountId)
+    };
+    drawTableRow(values, y);
 }
 
 void drawAccountRow(size_t index, int y)
@@ -394,15 +445,14 @@ void drawAccountRow(size_t index, int y)
     const auto& account = bank.accounts[index];
     auto credit = dynamic_cast<CreditAccount*>(account.get());
 
-    cell(80, y + 10, 220, wide(account->accountId));
-    cell(320, y + 10, 210, wide(account->studentId));
-    cell(550, y + 10, 140, credit ? L"信用账户" : L"储蓄账户");
-    cell(710, y + 10, 220, moneyText(account->balance));
-    cell(
-        950,
-        y + 10,
-        170,
-        credit ? moneyText(credit->getCreditLimit()) : L"—");
+    std::array<std::wstring, 5> values = {
+        wide(account->accountId),
+        wide(account->studentId),
+        credit ? L"信用账户" : L"储蓄账户",
+        moneyText(account->balance),
+        credit ? moneyText(credit->getCreditLimit()) : L"—"
+    };
+    drawTableRow(values, y);
 }
 
 void drawRows()
@@ -665,8 +715,7 @@ bool handleSelectedAccount(int actionType)
     if (actionType == 6)
     {
         history = true;
-        first = 0;
-        refresh();
+        resetPage();
         return false;
     }
 
@@ -769,9 +818,7 @@ void handleKeyDown(int key, bool& running)
 
     if (history)
     {
-        history = false;
-        first = 0;
-        refresh();
+        showAccounts();
     }
     else
     {
@@ -787,9 +834,7 @@ void handleMouseDown(int x, int y, bool& running)
     {
         if (history)
         {
-            history = false;
-            first = 0;
-            refresh();
+            showAccounts();
         }
         else
         {
@@ -800,7 +845,7 @@ void handleMouseDown(int x, int y, bool& running)
 
     if (hit(x, y, 900, 575, 110))
     {
-        first = std::max(0, first - Rows);
+        scrollPage(-Rows);
         return;
     }
 
@@ -808,7 +853,7 @@ void handleMouseDown(int x, int y, bool& running)
     {
         if (first + Rows < static_cast<int>(shown.size()))
         {
-            first += Rows;
+            scrollPage(Rows);
         }
         return;
     }
@@ -833,29 +878,20 @@ void handleMouseDown(int x, int y, bool& running)
         std::wstring input;
         if (ask(L"请输入账号或学号关键字（留空显示全部）", input))
         {
-            keyword = input;
-            selected.clear();
-            first = 0;
-            refresh();
+            searchAccounts(input);
         }
         return;
     }
 
     if (hit(x, y, 840, 125, 140))
     {
-        keyword.clear();
-        selected.clear();
-        first = 0;
-        refresh();
+        showAllAccounts();
         return;
     }
 
     if (hit(x, y, 1000, 125, 140))
     {
-        selected.clear();
-        history = true;
-        first = 0;
-        refresh();
+        showAllHistory();
         return;
     }
 
@@ -878,8 +914,7 @@ void handleMessage(const ExMessage& msg, bool& running)
     }
     else if (msg.message == WM_MOUSEWHEEL)
     {
-        first = std::max(0, first + (msg.wheel > 0 ? -Rows : Rows));
-        refresh();
+        scrollPage(msg.wheel > 0 ? -Rows : Rows);
     }
     else if (msg.message == WM_LBUTTONDOWN)
     {
