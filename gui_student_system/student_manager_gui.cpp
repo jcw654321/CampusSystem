@@ -4,16 +4,19 @@
 #include "fileoperate.h"
 #include "student_manager.h"
 #include "subject_manager.h"
+#include "student_manager_gui.h"
 #include <cstdlib>
 #include <sstream>
 #include <vector>
 using namespace std;
 
+namespace
+{
 vector<Student> students;
 StudentManager studentManager("管理员", "", "admin", "");
 SubjectManager subjectManager("管理员", "", "admin", "");
 
-void showText(const string& text);
+void showText(const string &text);
 
 // 将UTF-8字符转为easyx支持的宽字符类型
 wstring toWstring(const string &s)
@@ -40,7 +43,7 @@ string toString(const wstring &w)
     return s;
 }
 
-//背景绘制相关函数
+// 背景绘制相关函数
 void drawHeader()
 {
     setfillcolor(RGB(0, 63, 136));
@@ -52,7 +55,7 @@ void drawHeader()
     outtextxy(40, 22, L"华南理工大学  校园综合管理系统");
 }
 
-//底部绘制
+// 底部绘制
 void drawFooter()
 {
     setlinecolor(RGB(205, 212, 224));
@@ -65,7 +68,7 @@ void drawFooter()
     outtextxy((1200 - w) / 2, 724, text);
 }
 
-//菜单绘制
+// 菜单绘制
 void drawStudentPage()
 {
     setbkmode(TRANSPARENT);
@@ -81,17 +84,18 @@ void drawStudentPage()
     outtextxy(60, 130, L"学生管理");
 }
 
-//绘制学生操作按钮
+// 绘制学生操作按钮
 void drawStudentActionButtons()
 {
-    const wchar_t* labels[] = {
+    const wchar_t *labels[] = {
         L"获取所有学生信息",
         L"添加学生",
         L"删除学生",
         L"更新学生信息",
         L"查找学生",
-        L"管理学生课程"
-    };
+        L"按课程查询学生",
+        L"成绩排名",
+        L"管理学生课程"};
 
     const int x = 360;
     const int width = 480;
@@ -104,7 +108,7 @@ void drawStudentActionButtons()
     settextcolor(RGB(0, 63, 136));
     setlinecolor(RGB(205, 212, 224));
 
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < 8; ++i)
     {
         int y = startY + i * (height + gap);
 
@@ -117,12 +121,11 @@ void drawStudentActionButtons()
     }
 }
 
-//绘制课程管理菜单
+// 绘制课程管理菜单
 void drawCourseMenu()
 {
-    const wchar_t* labels[] = {
-        L"查看课程", L"添加课程", L"删除课程", L"修改成绩"
-    };
+    const wchar_t *labels[] = {
+        L"查看课程", L"添加课程", L"删除课程", L"修改成绩"};
 
     setbkmode(TRANSPARENT);
     settextcolor(RGB(33, 37, 41));
@@ -147,12 +150,16 @@ void drawCourseMenu()
     }
 }
 
-enum class Page { StudentMenu, CourseMenu };
+enum class Page
+{
+    StudentMenu,
+    CourseMenu
+};
 
 Page currentPage = Page::StudentMenu;
 int selectedStudentIndex = -1;
 
-//检测点击的按钮
+// 检测点击的按钮
 int hitVerticalButton(int x, int y, int count, int startY = 190)
 {
     if (x < 360 || x > 840)
@@ -175,7 +182,7 @@ int hitStudentButton(int x, int y)
     if (x < 360 || x > 840)
         return -1;
 
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < 8; ++i)
     {
         int top = startY + i * pitch;
         if (y >= top && y <= top + height)
@@ -185,7 +192,7 @@ int hitStudentButton(int x, int y)
 }
 
 // 查找学生索引
-int findStudentIndex(const string& id)
+int findStudentIndex(const string &id)
 {
     for (int i = 0; i < static_cast<int>(students.size()); ++i)
         if (students[i].getStudentId() == id)
@@ -194,7 +201,7 @@ int findStudentIndex(const string& id)
     return -1;
 }
 
-//绘制当前页面
+// 绘制当前页面
 void drawCurrentPage()
 {
     cleardevice();
@@ -210,9 +217,11 @@ void drawCurrentPage()
     {
         drawCourseMenu();
     }
+
+    FlushBatchDraw(); // 整页画完后一次性显示
 }
 
-bool inputText(const wchar_t* prompt, string& value)
+bool inputText(const wchar_t *prompt, string &value)
 {
     wchar_t buffer[256] = {};
     if (!InputBox(buffer, 256, prompt, L"学生管理"))
@@ -222,15 +231,42 @@ bool inputText(const wchar_t* prompt, string& value)
     return true;
 }
 
-void showText(const string& text)
+void showText(const string &text)
 {
     wstring wide = toWstring(text);
     MessageBoxW(GetHWnd(), wide.c_str(), L"提示", MB_OK);
 }
 
-bool parseScore(const string& text, float& score)
+bool inputFields(const wchar_t *prompt, size_t expectedCount,
+                 vector<string> &fields)
 {
-    char* end = nullptr;
+    while (true)
+    {
+        wchar_t buffer[512] = {};
+        if (!InputBox(buffer, 512, prompt, L"学生管理"))
+            return false;
+
+        istringstream input(toString(wstring(buffer)));
+        vector<string> values;
+        string value;
+
+        while (input >> value)
+            values.push_back(value);
+
+        if (values.size() != expectedCount)
+        {
+            showText("输入项数量不正确，请按提示重新输入。");
+            return false;
+        }
+
+        fields.swap(values);
+        return true;
+    }
+}
+
+bool parseScore(const string &text, float &score)
+{
+    char *end = nullptr;
     score = strtof(text.c_str(), &end);
     return end != text.c_str() && *end == '\0' && score >= 0 && score <= 100;
 }
@@ -240,7 +276,7 @@ void handleStudentAction(int action)
     if (action == 0) // 获取所有学生
     {
         ostringstream result;
-        for (const Student& s : students)
+        for (const Student &s : students)
             result << s.getStudentId() << "  " << s.getName()
                    << "  " << s.getClassName() << '\n';
 
@@ -248,16 +284,23 @@ void handleStudentAction(int action)
     }
     else if (action == 1) // 添加学生
     {
-        string userId, name, sex, email, password, major, id, className;
-        if (!inputText(L"用户ID", userId) ||
-            !inputText(L"姓名", name) ||
-            !inputText(L"性别", sex) ||
-            !inputText(L"邮箱", email) ||
-            !inputText(L"密码", password) ||
-            !inputText(L"专业", major) ||
-            !inputText(L"学号", id) ||
-            !inputText(L"班级", className))
+        vector<string> fields;
+        if (!inputFields(
+                L"请按顺序输入8项，以空格分隔：用户ID 姓名 性别 邮箱 密码 专业 学号 班级",
+                8,
+                fields))
+        {
             return;
+        }
+
+        string userId = fields[0];
+        string name = fields[1];
+        string sex = fields[2];
+        string email = fields[3];
+        string password = fields[4];
+        string major = fields[5];
+        string id = fields[6];
+        string className = fields[7];
 
         if (id.empty() || findStudentIndex(id) >= 0)
         {
@@ -275,7 +318,8 @@ void handleStudentAction(int action)
     else if (action == 2) // 删除学生
     {
         string id;
-        if (!inputText(L"请输入要删除的学号", id)) return;
+        if (!inputText(L"请输入要删除的学号", id))
+            return;
 
         if (findStudentIndex(id) < 0)
         {
@@ -291,7 +335,8 @@ void handleStudentAction(int action)
     else if (action == 3) // 更新学生
     {
         string id;
-        if (!inputText(L"请输入要更新的学号", id)) return;
+        if (!inputText(L"请输入要更新的学号", id))
+            return;
 
         int index = findStudentIndex(id);
         if (index < 0)
@@ -302,21 +347,26 @@ void handleStudentAction(int action)
 
         Student updatedStudent = students[index];
         string value;
+        vector<string> fields;
+        if (!inputFields(
+                L"请按顺序输入8项，以空格分隔：用户ID 姓名 性别 邮箱 密码 专业 学号 班级",
+                8,
+                fields))
+        {
+            return;
+        }
 
-        if (!inputText(L"新姓名（留空不变）", value)) return;
-        if (!value.empty()) updatedStudent.setName(value);
-
-        if (!inputText(L"新邮箱（留空不变）", value)) return;
-        if (!value.empty()) updatedStudent.setEmail(value);
-
-        if (!inputText(L"新专业（留空不变）", value)) return;
-        if (!value.empty()) updatedStudent.setMajor(value);
-
-        if (!inputText(L"新班级（留空不变）", value)) return;
-        if (!value.empty()) updatedStudent.setClassName(value);
-
-        if (!inputText(L"新性别（留空不变）", value)) return;
-        if (!value.empty()) updatedStudent.setSex(value);
+        string userId = fields[0];
+        string name = fields[1];
+        string sex = fields[2];
+        string email = fields[3];
+        string password = fields[4];
+        string major = fields[5];
+        string id2 = fields[6];
+        string className = fields[7];
+        
+        updatedStudent = Student(name, email, userId, password, major, id2, className);
+        updatedStudent.setSex(sex);
 
         if (studentManager.updateStudent(students, updatedStudent))
             showText("学生信息已更新并保存。");
@@ -326,7 +376,8 @@ void handleStudentAction(int action)
     else if (action == 4) // 查找学生
     {
         string id;
-        if (!inputText(L"请输入学号", id)) return;
+        if (!inputText(L"请输入学号", id))
+            return;
 
         int index = findStudentIndex(id);
         if (index < 0)
@@ -335,7 +386,7 @@ void handleStudentAction(int action)
             return;
         }
 
-        const Student& s = students[index];
+        const Student &s = students[index];
         ostringstream result;
         result << "姓名：" << s.getName()
                << "\n学号：" << s.getStudentId()
@@ -344,14 +395,55 @@ void handleStudentAction(int action)
                << "\n邮箱：" << s.getEmail();
         showText(result.str());
     }
+    else if (action == 5) // 按课程查询学生
+    {
+        string courseId;
+        if (!inputText(L"请输入课程ID", courseId))
+            return;
+
+        vector<const Student*> matched =
+            subjectManager.findByCourse(students, courseId);
+
+        ostringstream result;
+        for (const Student* student : matched)
+        {
+            result << student->getStudentId() << " "
+                   << student->getName() << " "
+                   << student->getMajor() << " "
+                   << student->getClassName() << '\n';
+        }
+
+        showText(result.str().empty()
+                     ? "没有学生选修这门课程。"
+                     : result.str());
+    }
+    else if (action == 6) // 按平均成绩排名
+    {
+        vector<StudentAverage> ranked =
+            subjectManager.rankByAverageScore(students);
+
+        ostringstream result;
+        int rank = 1;
+        for (const StudentAverage& item : ranked)
+        {
+            result << rank++ << ". "
+                   << item.student->getStudentId() << " "
+                   << item.student->getName() << " 平均分："
+                   << item.average << '\n';
+        }
+
+        showText(result.str().empty()
+                     ? "暂无已录入成绩的学生。"
+                     : result.str());
+    }
 }
 
-void handleCourseAction(int action, Student& student)
+void handleCourseAction(int action, Student &student)
 {
     if (action == 0) // 查看课程
     {
         ostringstream result;
-        for (const subject& course : student.getSubjects())
+        for (const subject &course : student.getSubjects())
             result << course.getName() << "（" << course.getSubjectId()
                    << "），教师：" << course.getTeacherName()
                    << "，成绩：" << course.getScore() << '\n';
@@ -380,7 +472,8 @@ void handleCourseAction(int action, Student& student)
     else if (action == 2) // 删除课程
     {
         string id;
-        if (!inputText(L"请输入要删除的课程编号", id)) return;
+        if (!inputText(L"请输入要删除的课程编号", id))
+            return;
 
         subjectManager.removeSubject(student, id);
         showText("已执行删除。");
@@ -403,26 +496,24 @@ void handleCourseAction(int action, Student& student)
         showText("已执行成绩更新。");
     }
 }
-int main()
-{
-    initgraph(1200, 760);
-    SetWindowTextW(GetHWnd(), L"校园综合管理系统");
+}
 
-    setbkcolor(RGB(230, 236, 245));
-    cleardevice();
-    drawHeader();
-    drawFooter();
-    drawStudentPage();
-    drawStudentActionButtons();
-    if (!studentManager.loadStudentsFromFile(students))
-        showText("无法加载学生数据文件。");
+void runStudentManagerGui()
+{
+    students = studentManager.loadStudentsFromFile();
+    subjectManager.loadSubjectsFromfile(students);
+
+    currentPage = Page::StudentMenu;
+    selectedStudentIndex = -1;
     drawCurrentPage();
+
     ExMessage msg;
     HWND hwnd = GetHWnd();
     while (IsWindow(hwnd))
     {
         if (!peekmessage(&msg, EM_MOUSE | EM_KEY))
         {
+            drawCurrentPage();
             Sleep(10);
             continue;
         }
@@ -437,7 +528,7 @@ int main()
         {
             int button = hitStudentButton(msg.x, msg.y);
 
-            if (button == 5) // 管理学生课程
+            if (button == 7)
             {
                 wchar_t buffer[64] = {};
                 if (!InputBox(buffer, 64, L"请输入要管理的学生学号"))
@@ -453,15 +544,14 @@ int main()
                 currentPage = Page::CourseMenu;
                 drawCurrentPage();
             }
-            else if (button >= 0 && button < 5)
+            else if (button >= 0 && button < 7)
             {
-                handleStudentAction(button); // 学生的前五项操作
+                handleStudentAction(button);
                 drawCurrentPage();
             }
         }
         else
         {
-            // 返回按钮
             if (msg.x >= 60 && msg.x <= 180 &&
                 msg.y >= 92 && msg.y <= 120)
             {
@@ -480,6 +570,4 @@ int main()
         }
     }
 
-    closegraph();
-    return 0;
 }
