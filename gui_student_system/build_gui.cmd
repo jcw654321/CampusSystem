@@ -13,8 +13,12 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    /D_UNICODE /DUNICODE ^
    /I"..\student_manage_system\include" ^
    /I"..\include" ^
+   /I"include" ^
    /I"D:\c++\VC\Auxiliary\VS\include" ^
-   gui_main.cpp ^
+   src\gui_test.cpp ^
+   src\student_manager_gui.cpp ^
+   src\student_gui.cpp ^
+   src\course_manager_gui.cpp ^
    ..\student_manage_system\src\student.cpp ^
    ..\student_manage_system\src\student_manager.cpp ^
    ..\student_manage_system\src\subject.cpp ^

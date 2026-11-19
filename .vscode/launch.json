@@ -38,18 +38,6 @@
             "preLaunchTask": "cl: build bank (MSVC x64)"
         },
         {
-            "name": "C/C++ MSVC: 银行管理 GUI (EasyX)",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}\\gui_bank_system\\build\\gui.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\bank_manage_system",
-            "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "cl: build bank_gui (MSVC x64)"
-        },
-        {
             "name": "C/C++ MSVC: 图书管理 GUI (EasyX)",
             "type": "cppvsdbg",
             "request": "launch",
