@@ -24,7 +24,7 @@ vector<Student> StudentManager::loadStudentsFromFile()
         if (line.empty())
             continue;
         if (!parseCsvLine(line, fields) || fields.size() != 8)
-            return {};
+           continue;
 
         Student student(fields[1], fields[3], fields[0], fields[4],
                         fields[5], fields[6], fields[7]);
@@ -100,6 +100,17 @@ Student StudentManager::getStudent(const vector<Student>& students, const string
     }
     cout << "Student with ID " << studentId << " not found." << endl;
     return Student("", "", "", "", "", "", "");
+}
+
+const Student* StudentManager::findStudentByUserid(
+    const vector<Student>& students, const string& userid) const
+{
+    for (const Student& student : students)
+    {
+        if (student.getUserid() == userid)
+            return &student;
+    }
+    return nullptr;
 }
 
 void StudentManager::printStudentInfo(const Student& student) const {

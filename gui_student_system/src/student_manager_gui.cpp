@@ -6,7 +6,6 @@
 #include "subject_manager.h"
 #include "student_manager_gui.h"
 #include "course_manager_gui.h"
-#include <cstdlib>
 #include <sstream>
 #include <vector>
 #include <filesystem>

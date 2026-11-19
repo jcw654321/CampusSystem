@@ -8,6 +8,7 @@
 #include "student_manager.h"
 #include "subject_manager.h"
 using namespace std;
+
 namespace
 {
 enum class StudentPage

@@ -18,6 +18,8 @@ public:
     bool removeStudent(vector<Student>& students, const string& studentId);  // 删除学生
     bool updateStudent(vector<Student>& students, const Student& student);   // 更新学生信息
     Student getStudent(const vector<Student>& students, const string& studentId) const; // 获取学生信息
+    const Student* findStudentByUserid(const vector<Student>& students,
+                                       const string& userid) const;
 private:
     vector<Student> students; // 学生列表
 };
