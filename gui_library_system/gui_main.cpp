@@ -46,7 +46,7 @@ std::string reason = "";
 int selectedBook = -1; // 当前选中书本下标
 std::wstring libTip;   // 图书页面底部提示信息
 COLORREF libTipColor = RGB(200, 40, 40);
-std::vector<int> shownIndex; // 记录表格第i行代表的书在books里面的下标
+std::vector<int> shownIndex; // 记录表格第i行代表的书在books里面的下标,在重置函数中初始化
 int scrollFirst = 0;         // 从第几本开始显示(用于滚轮滑动设计)
 
 // 将UTF-8字符转为easyx支持的宽字符类型
@@ -742,7 +742,7 @@ int main()
                                     if (lib->addBook(b, reason))
                                     {
                                         lib->saveData(reason);
-                                        resetShown(); //重新生成表格目录
+                                        resetShown(); // 重新生成表格目录
                                         selectedBook = -1;
                                         libTip = L"新增成功";
                                         libTipColor = RGB(30, 140, 70);
@@ -888,17 +888,32 @@ int main()
                         {
                             Book b;
                             lib->getBookAtIndex(selectedBook, b);
-                            if (lib->removeBook(b.getBookId(), reason))
+
+                            wstring ques = L"确定要删除《" + toWstring(b.getTitle()) + L"》吗？";
+                            int answer = MessageBoxW(GetHWnd(), ques.c_str(), L"确认删除", MB_YESNO | MB_ICONQUESTION);
+                            if (answer == IDYES)
                             {
-                                lib->saveData(reason);
-                                libTip = L"删除成功";
-                                libTipColor = RGB(30, 140, 70);
+                                if (lib->removeBook(b.getBookId(), reason))
+                                {
+                                    lib->saveData(reason);
+
+                                    resetShown(); // 由于删除了图书,所以需要重置
+                                    selectedBook = -1;
+                                    libTip = L"删除成功";
+                                    libTipColor = RGB(30, 140, 70);
+                                }
+                                else
+                                {
+                                    libTip = toWstring(reason);
+                                    libTipColor = RGB(200, 40, 40);
+                                }
                             }
                             else
                             {
-                                libTip = toWstring(reason);
-                                libTipColor = RGB(200, 40, 40);
+                                libTip = L"已取消删除";
+                                libTipColor = RGB(108, 117, 125);
                             }
+
                             drawAll();
                         }
                     }
