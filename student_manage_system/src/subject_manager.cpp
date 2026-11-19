@@ -1,10 +1,104 @@
 #include "subject_manager.h"
+#include "fileoperate.h"
 #include<iostream>
 #include<algorithm>
+#include<fstream>
 using namespace std;
 
-void SubjectManager::getAllstudents(vector<Student>& students) {
-    students = this->students;
+const string student_filepath = ".\\data\\student_data\\student_data.csv";
+
+void SubjectManager::loadSubjectsFromfile(vector<Student>&students)
+{
+    for (Student& student : students)
+    {
+        string filepath = ".\\data\\subject_data\\" +
+                          student.getStudentId() + ".csv";
+
+        ifstream file(filepath, ios::binary);
+        if (!file)
+            continue;
+
+        string line;
+        getline(file, line); // 跳过表头
+
+        vector<string> fields;
+
+        while (getline(file, line))
+        {
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+
+            if (line.empty())
+                continue;
+
+            if (!parseCsvLine(line, fields) || fields.size() != 4)
+                continue;
+
+                subject s(
+                    fields[0],
+                    fields[1],
+                    fields[2],
+                    stof(fields[3])
+                );
+
+                addSubject(student, s);
+        }
+    }
+}
+
+vector<StudentAverage> SubjectManager::rankByAverageScore(const vector<Student>& students) const
+{
+    vector<StudentAverage> ranked;
+
+    for (const Student& student : students)
+    {
+        double total = 0;
+        int count = 0;
+
+        for (const subject& course : student.getSubjects())
+        {
+            if (course.getScore() >= 0)
+            {
+                total += course.getScore();
+                ++count;
+            }
+        }
+
+        // 没有已录入成绩的学生不参与排名
+        if (count > 0)
+            ranked.push_back({&student, total / count});
+    }
+
+    sort(ranked.begin(), ranked.end(),
+         [](const StudentAverage& a, const StudentAverage& b)
+         {
+             if (a.average != b.average)
+                 return a.average > b.average;
+             return a.student->getStudentId() < b.student->getStudentId();
+         });
+
+    return ranked;
+}
+
+vector<const Student*> SubjectManager::findByCourse(const vector<Student>& students,const string& courseId) const
+{
+    vector<const Student*> matched;
+
+    for (const Student& student : students)
+    {
+        const vector<subject>& courses = student.getSubjects();
+        bool selected = any_of(
+            courses.begin(), courses.end(),
+            [&courseId](const subject& course)
+            {
+                return course.getSubjectId() == courseId;
+            });
+
+        if (selected)
+            matched.push_back(&student);
+    }
+
+    return matched;
 }
 
 void SubjectManager::addSubject(Student& student, const subject& s) {

@@ -31,13 +31,8 @@ int main() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 
-    vector<Student> students;
     StudentManager manager("管理员", "admin@example.com", "admin", "123456");
-
-    if (!manager.loadStudentsFromFile(students)) {
-        cerr << "无法加载学生数据文件。\n";
-        return 1;
-    }
+    vector<Student> students = manager.loadStudentsFromFile();
 
     while (true) {
         cout << "\n===== 学生管理系统 =====\n"

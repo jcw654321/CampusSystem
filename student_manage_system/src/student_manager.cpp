@@ -6,15 +6,11 @@ using namespace std;
 
 const string filepath = ".\\data\\student_data\\student_data.csv";
 
-void StudentManager::getAllStudents(const vector<Student>& students) {
-    this->students = students;
-}
-
-bool StudentManager::loadStudentsFromFile(vector<Student>& students)
+vector<Student> StudentManager::loadStudentsFromFile()
 {
     ifstream file(filepath, ios::binary);
     if (!file)
-        return false;
+        return {};
 
     string line;
     getline(file, line);
@@ -28,7 +24,7 @@ bool StudentManager::loadStudentsFromFile(vector<Student>& students)
         if (line.empty())
             continue;
         if (!parseCsvLine(line, fields) || fields.size() != 8)
-            return false;
+            return {};
 
         Student student(fields[1], fields[3], fields[0], fields[4],
                         fields[5], fields[6], fields[7]);
@@ -38,7 +34,11 @@ bool StudentManager::loadStudentsFromFile(vector<Student>& students)
 
     students.swap(loadedStudents);
     this->students = students;
-    return true;
+    return students;
+}
+
+void StudentManager::getAllStudents(const vector<Student>& students) {
+    this->students = students;
 }
 
 bool StudentManager::saveStudentsToFile(const vector<Student>& students) const
