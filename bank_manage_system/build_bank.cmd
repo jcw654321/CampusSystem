@@ -7,6 +7,7 @@ set "BANK_VSROOT="
 if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" (
     for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "BANK_VSROOT=%%i"
 )
+if not defined BANK_VSROOT if exist "D:\c++\VC\Auxiliary\Build\vcvars64.bat" set "BANK_VSROOT=D:\c++"
 if not defined BANK_VSROOT if exist "D:\Visual Studio\VC\Auxiliary\Build\vcvars64.bat" set "BANK_VSROOT=D:\Visual Studio"
 if not defined BANK_VSROOT (
     echo [ERROR] Visual Studio C++ tools not found.

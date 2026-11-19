@@ -4,8 +4,10 @@
 #include"dateutils.h"
 #include<vector>
 #include<string>
+#include"library_base.h"
 using namespace std;
-class LibrarySystem{
+class LibrarySystem : public LibraryBase
+{
 public:
 explicit LibrarySystem(string dataFile);              //构造函数,只用来保存数据库的位置,具体的文件读写交给专门的成员函数
 

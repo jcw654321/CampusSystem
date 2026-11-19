@@ -1,7 +1,7 @@
 #pragma once
 
-#include "student.h"
+#include <string>
 
 // Requires an active 1200x760 EasyX window; caller owns its lifecycle.
-void runStudentGui(const Student& student);
-void runStudentGui(const string& userid);
+// userId is the account id from user.csv (for example U0001).
+void runStudentGui(const std::string& userId);

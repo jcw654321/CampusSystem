@@ -8,56 +8,20 @@
             "args": [
                 "${workspaceFolder}\\library_manage_system"
             ],
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "C:\\Windows\\System32\\cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            },
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [ "$msCompile" ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
             "detail": "编译 library_manage_system（图书管理）"
         },
         {
             "label": "cl: build student (MSVC x64)",
             "type": "shell",
             "command": "${workspaceFolder}\\student_manage_system\\build_student.cmd",
-            "args": [
-                "${workspaceFolder}\\student_manage_system"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "C:\\Windows\\System32\\cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ],
+            "options": { "cwd": "${workspaceFolder}\\student_manage_system" },
+            "problemMatcher": [ "$msCompile" ],
             "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            },
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
             "detail": "编译 student_manage_system（学生管理）"
         },
         {
@@ -67,25 +31,10 @@
             "args": [
                 "${workspaceFolder}\\bank_manage_system"
             ],
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "C:\\Windows\\System32\\cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [ "$msCompile" ],
             "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            },
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
             "detail": "编译 bank_manage_system（银行管理）"
         },
         {
@@ -117,80 +66,21 @@
             "label": "cl: build gui (MSVC x64)",
             "type": "shell",
             "command": "${workspaceFolder}\\gui_library_system\\build_gui.cmd",
-            "options": {
-                "cwd": "${workspaceFolder}\\gui_library_system",
-                "shell": {
-                    "executable": "C:\\Windows\\System32\\cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            },
-            "detail": "编译 gui_library_system（EasyX 图形界面）"
+            "options": { "cwd": "${workspaceFolder}\\gui_library_system" },
+            "problemMatcher": [ "$msCompile" ],
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "detail": "编译 gui_library_system（图书管理 GUI）"
         },
-         {
+        {
             "label": "cl: build student_gui (MSVC x64)",
             "type": "shell",
             "command": "${workspaceFolder}\\gui_student_system\\build_gui.cmd",
-            "options": {
-                "cwd": "${workspaceFolder}\\gui_student_system",
-                "shell": {
-                    "executable": "C:\\Windows\\System32\\cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "clear": true
-            },
-            "detail": "编译 gui_student_system（EasyX 图形界面）"
-        },
-        {
-            "type": "cppbuild",
-            "label": "C/C++: g++.exe build active file",
-            "command": "D:\\VSCode\\mingw64\\bin\\g++.exe",
-            "args": [
-                "-fdiagnostics-color=always",
-                "-g",
-                "${file}",
-                "-o",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe"
-            ],
-            "options": {
-                "cwd": "${fileDirname}"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
-            "detail": "Task generated by Debugger."
+            "options": { "cwd": "${workspaceFolder}\\gui_student_system" },
+            "problemMatcher": [ "$msCompile" ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "detail": "编译 gui_student_system（学生管理 GUI）"
         }
     ]
 }

@@ -7,9 +7,9 @@
 #include <vector>
 #include "Banksystem.h"
 #include "CreditAccount.h"
+#include "gui_bank.h"
 #include <cstdint>
 #include <limits>
-#include <string>
 
 // 从十进制文本直接解析“分”，避免浮点数舍入；不接受符号、指数或空白。
 inline bool parseMoney(const std::wstring& text, std::int64_t& cents) {
@@ -271,60 +271,171 @@ bool load() {
     if (!hasAccounts) return true;
     return bank.loadAccounts() && bank.loadTransactions();
 }
-} // namespace
 
-int main() {
-    // 固定到项目 bank_manage_system，启动方式不会改变数据位置。
-    wchar_t executable[32768] = {};
-    DWORD length = GetModuleFileNameW(nullptr, executable, 32768);
-    if (length == 0 || length >= 32768) return 1;
-    auto root = std::filesystem::path(executable).parent_path().parent_path().parent_path();
+void resetState() {
+    bank = Banksystem{};
+    history = false;
+    dirty = false;
+    first = 0;
+    selected.clear();
+    keyword.clear();
+    tip = L"请选择账户办理业务；金额单位为元。";
+    tipColor = Muted;
+    shown.clear();
+}
+
+bool initializeDataDirectory(const std::filesystem::path& dataDirectory) {
     std::error_code ec;
-    std::filesystem::current_path(root / "bank_manage_system", ec);
+    std::filesystem::current_path(dataDirectory, ec);
     if (ec || !load()) {
-        MessageBoxW(nullptr, L"银行数据目录不可用，或账户/流水文件缺失、格式错误。\n请确保两份文件配套，原文件未修改。", L"加载失败", MB_OK | MB_ICONERROR);
-        return 1;
+        MessageBoxW(nullptr, L"银行数据目录不可用，或账户/流水文件缺失、格式错误。\n请确保两份文件配套，原文件未修改。",
+            L"加载失败", MB_OK | MB_ICONERROR);
+        return false;
     }
+    return true;
+}
+
+HANDLE acquireInstanceLock() {
     HANDLE lock = CreateMutexW(nullptr, TRUE, L"Local\\CampusBankGui");
     if (!lock || GetLastError() == ERROR_ALREADY_EXISTS) {
         MessageBoxW(nullptr, L"银行前端已经运行，请使用已打开的窗口。", L"提示", MB_OK);
         if (lock) CloseHandle(lock);
-        return 1;
+        return nullptr;
     }
+    return lock;
+}
+
+void initializeWindow() {
     initgraph(1200, 760);
     SetWindowTextW(GetHWnd(), L"校园综合管理系统 - 银行管理");
     EnableMenuItem(GetSystemMenu(GetHWnd(), FALSE), SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
     setbkcolor(Background);
-    BeginBatchDraw(); refresh(); draw();
+    BeginBatchDraw();
+    refresh();
+    draw();
+}
+
+void handleKeyDown(int key, bool& running) {
+    if (key != VK_ESCAPE) return;
+    if (history) {
+        history = false;
+        first = 0;
+        refresh();
+    } else {
+        running = !canExit();
+    }
+}
+
+void handleMouseDown(int x, int y, bool& running) {
+    if (hit(x, y, 60, 90, 200, 30) || (history && hit(x, y, 60, 625, 160))) {
+        if (history) {
+            history = false;
+            first = 0;
+            refresh();
+        } else {
+            running = !canExit();
+        }
+    } else if (hit(x, y, 900, 575, 110)) {
+        first = std::max(0, first - Rows);
+    } else if (hit(x, y, 1030, 575, 110)) {
+        if (first + Rows < (int)shown.size()) first += Rows;
+    } else if (!history) {
+        if (hit(x, y, 60, 262, 1080, Rows * 38)) {
+            int pos = first + (y - 262) / 38;
+            if (pos < (int)shown.size()) selected = bank.accounts[shown[pos]]->accountId;
+        } else if (hit(x, y, 680, 125, 140)) {
+            std::wstring input;
+            if (ask(L"请输入账号或学号关键字（留空显示全部）", input)) {
+                keyword = input;
+                selected.clear();
+                first = 0;
+                refresh();
+            }
+        } else if (hit(x, y, 840, 125, 140)) {
+            keyword.clear();
+            selected.clear();
+            first = 0;
+            refresh();
+        } else if (hit(x, y, 1000, 125, 140)) {
+            selected.clear();
+            history = true;
+            first = 0;
+            refresh();
+        } else {
+            for (int i = 0; i < 8; ++i) {
+                if (hit(x, y, 60 + i * 137, 625, 121)) {
+                    action(i);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void handleMessage(const ExMessage& msg, bool& running) {
+    if (msg.message == WM_KEYDOWN) {
+        handleKeyDown(msg.vkcode, running);
+    } else if (msg.message == WM_MOUSEWHEEL) {
+        first = std::max(0, first + (msg.wheel > 0 ? -Rows : Rows));
+        refresh();
+    } else if (msg.message == WM_LBUTTONDOWN) {
+        handleMouseDown(msg.x, msg.y, running);
+    }
+}
+
+void runEventLoop() {
     ExMessage msg;
     bool running = true;
     while (running && IsWindow(GetHWnd())) {
-        if (!peekmessage(&msg, EM_MOUSE | EM_KEY)) { Sleep(10); continue; }
-        if (msg.message == WM_KEYDOWN && msg.vkcode == VK_ESCAPE) {
-            if (history) { history = false; first = 0; refresh(); }
-            else running = !canExit();
-        } else if (msg.message == WM_MOUSEWHEEL) {
-            first = std::max(0, first + (msg.wheel > 0 ? -Rows : Rows)); refresh();
-        } else if (msg.message == WM_LBUTTONDOWN) {
-            int x = msg.x, y = msg.y;
-            if (hit(x, y, 60, 90, 200, 30) || (history && hit(x, y, 60, 625, 160))) {
-                if (history) { history = false; first = 0; refresh(); } else running = !canExit();
-            } else if (hit(x, y, 900, 575, 110)) { first = std::max(0, first - Rows); }
-            else if (hit(x, y, 1030, 575, 110)) { if (first + Rows < (int)shown.size()) first += Rows; }
-            else if (!history) {
-                if (hit(x, y, 60, 262, 1080, Rows * 38)) {
-                    int pos = first + (y - 262) / 38;
-                    if (pos < (int)shown.size()) selected = bank.accounts[shown[pos]]->accountId;
-                } else if (hit(x, y, 680, 125, 140)) {
-                    std::wstring input;
-                    if (ask(L"请输入账号或学号关键字（留空显示全部）", input)) { keyword = input; selected.clear(); first = 0; refresh(); }
-                } else if (hit(x, y, 840, 125, 140)) { keyword.clear(); selected.clear(); first = 0; refresh(); }
-                else if (hit(x, y, 1000, 125, 140)) { selected.clear(); history = true; first = 0; refresh(); }
-                else for (int i = 0; i < 8; ++i) if (hit(x, y, 60 + i * 137, 625, 121)) { action(i); break; }
-            }
+        if (!peekmessage(&msg, EM_MOUSE | EM_KEY)) {
+            Sleep(10);
+            continue;
         }
+        handleMessage(msg, running);
         if (running) draw();
     }
-    EndBatchDraw(); closegraph(); ReleaseMutex(lock); CloseHandle(lock);
-    return 0;
+}
+
+void closeWindow(HANDLE lock) {
+    EndBatchDraw();
+    closegraph();
+    ReleaseMutex(lock);
+    CloseHandle(lock);
+}
+
+bool restoreWorkingDirectory(const std::filesystem::path& directory) {
+    std::error_code ec;
+    std::filesystem::current_path(directory, ec);
+    if (ec) {
+        MessageBoxW(nullptr, L"无法恢复原工作目录。", L"错误", MB_OK | MB_ICONERROR);
+        return false;
+    }
+    return true;
+}
+} // namespace
+
+bool gui_bank::run(const std::filesystem::path& dataDirectory) {
+    std::error_code ec;
+    std::filesystem::path previousDirectory = std::filesystem::current_path(ec);
+    if (ec) {
+        MessageBoxW(nullptr, L"无法读取当前工作目录。", L"启动失败", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    HANDLE lock = acquireInstanceLock();
+    if (!lock) return false;
+
+    resetState();
+    if (!initializeDataDirectory(dataDirectory)) {
+        ReleaseMutex(lock);
+        CloseHandle(lock);
+        restoreWorkingDirectory(previousDirectory);
+        return false;
+    }
+
+    initializeWindow();
+    runEventLoop();
+    closeWindow(lock);
+
+    return restoreWorkingDirectory(previousDirectory);
 }
