@@ -27,7 +27,8 @@ vector<Student> StudentManager::loadStudentsFromFile()
             return {};
 
         Student student(fields[1], fields[3], fields[0], fields[4],
-                        fields[5], fields[6], fields[7]);
+                        fields[5], fields[6], fields[7],
+                        fields.size() == 9 ? fields[8] : "");
         student.setSex(fields[2]);
         loadedStudents.push_back(student);
     }
@@ -47,7 +48,7 @@ bool StudentManager::saveStudentsToFile(const vector<Student>& students) const
     if (!file)
         return false;
 
-    file << "\xEF\xBB\xBF" << "用户ID,用户名,性别,邮箱,密码,专业,学号,班级\n";
+    file << "\xEF\xBB\xBF" << "用户ID,用户名,性别,邮箱,密码,专业,学号,班级,年级\n";
     for (const Student& student : students)
     {
         file << escapeCsvField(student.getUserid()) << ','
@@ -57,7 +58,8 @@ bool StudentManager::saveStudentsToFile(const vector<Student>& students) const
              << escapeCsvField(student.getPassword()) << ','
              << escapeCsvField(student.getMajor()) << ','
              << escapeCsvField(student.getStudentId()) << ','
-             << escapeCsvField(student.getClassName()) << '\n';
+             << escapeCsvField(student.getClassName()) << ','
+             << escapeCsvField(student.getGrade()) << '\n';
     }
     return static_cast<bool>(file);
 }
@@ -85,6 +87,7 @@ bool StudentManager::updateStudent(vector<Student>& students, const Student& stu
             current.setPassword(student.getPassword());
             current.setMajor(student.getMajor());
             current.setClassName(student.getClassName());
+            current.setGrade(student.getGrade());
             current.setSex(student.getSex());
             return saveStudentsToFile(students);
         }
@@ -109,4 +112,5 @@ void StudentManager::printStudentInfo(const Student& student) const {
     cout << "Major: " << student.getMajor() << endl;
     cout << "Student ID: " << student.getStudentId() << endl;
     cout << "Class Name: " << student.getClassName() << endl;
+    cout << "Grade: " << student.getGrade() << endl;
 }

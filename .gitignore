@@ -57,3 +57,10 @@ Makefile
 *.bak
 *.orig
 *.swp
+
+# 银行系统运行时数据（不入库）
+bank_manage_system/accounts.txt
+bank_manage_system/transactions.txt
+
+# 第三方本地依赖（不入库）
+third_party/

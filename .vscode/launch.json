@@ -1,65 +1,77 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "C/C++ MSVC: 图书管理 (library)",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}\\library_manage_system\\build\\main.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\library_manage_system",
-            "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "cl: build current project (MSVC x64)"
-        },
-        {
-            "name": "C/C++ MSVC: 学生管理 (student)",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}\\student_manage_system\\build\\main.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\student_manage_system",
-            "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "cl: build student (MSVC x64)"
-        },
-        {
-            "name": "C/C++ MSVC: 银行管理 (bank)",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}\\bank_manage_system\\build\\main.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\bank_manage_system",
-            "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "cl: build bank (MSVC x64)"
-        },
-        {
-            "name": "C/C++ MSVC: 图书管理 GUI (EasyX)",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}\\gui_library_system\\build\\gui.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\library_manage_system",
-            "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "cl: build gui (MSVC x64)"
-        },
-         {
-            "name": "C/C++ MSVC: 学生管理 GUI (EasyX)",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}\\gui_student_system\\build\\gui.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}\\student_manage_system",
-            "environment": [],
-            "console": "integratedTerminal",
-            "preLaunchTask": "cl: build student_gui (MSVC x64)"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ MSVC: 银行管理 (bank)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\bank_manage_system\\build\\main.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}\\bank_manage_system",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "cl: build bank (MSVC x64)"
+    },
+    {
+      "name": "C/C++ MSVC: 图书管理 (library)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\library_manage_system\\build\\main.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}\\library_manage_system",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "cl: build current project (MSVC x64)"
+    },
+    {
+      "name": "C/C++ MSVC: 学生管理 (student)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\student_manage_system\\build\\main.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}\\student_manage_system",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "cl: build student (MSVC x64)"
+    },
+    {
+      "name": "C/C++ MSVC: 图书管理 GUI (EasyX)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\gui_library_system\\build\\gui.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}\\library_manage_system",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "cl: build gui (MSVC x64)"
+    },
+    {
+      "name": "C/C++ MSVC: 学生管理 GUI (EasyX)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\gui_student_system\\build\\gui.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}\\student_manage_system",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "cl: build student_gui (MSVC x64)"
+    },
+    {
+      "name": "C/C++ MSVC: 银行管理 GUI (EasyX)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\gui_bank_system\\build\\gui.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}\\bank_manage_system",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "cl: build bank_gui (MSVC x64)"
+    }
+  ]
 }
