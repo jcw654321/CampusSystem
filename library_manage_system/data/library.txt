@@ -1,4 +1,4 @@
-BOOK|B001|C++ Primer|Stanley Lippman|计算机|5|1
+BOOK|B001|C++ Primer|Stanley Lippman|计算机|10|1
 BOOK|B002|线性代数|姚文琦|数学|3|1
 BOOK|B003|工科数学分析|刘青青|数学|2|1
 BOOK|B004|Python编程从入门到实践|Eric Matthes|计算机|0|1

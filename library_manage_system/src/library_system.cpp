@@ -311,6 +311,28 @@ bool LibrarySystem::setBookStatus(const string &bookId, BookStatus status, strin
     return false;
 }
 
+bool LibrarySystem::removeBook(const string& bookId,string& reason)
+{
+    int index = findBookIndex(bookId);
+    if(index<0)
+    {
+        reason = "未找到Id为" + bookId + "的图书";
+        return false;
+    }
+
+    for(const auto& loan:loans)
+    {
+        if(loan.getBookId()==bookId)
+        {
+            reason = "该图书存在借阅记录，不能删除";
+            return false;
+        }
+    }
+
+    books.erase(books.begin()+index);
+    return true;
+}
+
 // 第三批函数:借阅类
 int LibrarySystem::findLoanIndex(const string &loanId) const
 {

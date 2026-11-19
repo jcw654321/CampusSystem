@@ -13,7 +13,6 @@
 #include "student_manager_gui.h"
 #include "course_manager_gui.h"
 
-
 // 定义枚举类page表示当前页面类型
 enum class Page
 {
@@ -217,6 +216,18 @@ void drawCard(int x, int y, const wchar_t *title)
     outtextxy(x + 70 + (160 - gwid) / 2, y + 301, go);
 }
 
+void drawBottomButton(int index, const wchar_t *text)
+{
+    int x = 60 + index * 135; // 按钮长120,间距15,所以135
+
+    setfillcolor(RGB(0, 63, 136));
+    fillroundrect(x, 620, x + 120, 660, 8, 8); // 按钮高40
+    settextcolor(RGB(255, 255, 255));
+    settextstyle(18, 0, L"微软雅黑");
+    int tw = textwidth(text);
+    outtextxy(x + (120 - tw) / 2, 628, text);
+}
+
 // 绘制图书馆里系统界面
 void drawLibraryPage()
 {
@@ -279,20 +290,24 @@ void drawLibraryPage()
         outtextxy(780, y + 10, num.c_str());
         outtextxy(940, y + 10, b.isonshelf() ? L"上架" : L"已下架");
     }
-    // 底部,三个按钮借书还书刷新
-    setfillcolor(RGB(0, 63, 136));
-    fillroundrect(60, 620, 180, 660, 8, 8);
-    fillroundrect(200, 620, 320, 660, 8, 8);
-    fillroundrect(340, 620, 460, 660, 8, 8);
-    fillroundrect(480, 620, 600, 660, 8, 8);
+    // 底部,8个按钮,普通用户只能看到前三个,管理员可以操作后5个高级权限,在函数drawLibManagementPage中绘制
+    drawBottomButton(0, L"借  书");
+    drawBottomButton(1, L"还  书");
+    drawBottomButton(2, L"搜  索");
 
-    settextcolor(RGB(255, 255, 255));
-    settextstyle(18, 0, L"微软雅黑");
+    // 顶部,刷新按钮
+    setfillcolor(RGB(236, 241, 248));
+    fillroundrect(1020, 128, 1140, 160, 8, 8);
 
-    outtextxy(60 + (120 - textwidth(L"借  书")) / 2, 628, L"借  书");
-    outtextxy(200 + (120 - textwidth(L"还  书")) / 2, 628, L"还  书");
-    outtextxy(340 + (120 - textwidth(L"刷  新")) / 2, 628, L"刷  新");
-    outtextxy(480 + (120 - textwidth(L"搜  索")) / 2, 628, L"搜  索");
+    setlinecolor(RGB(0, 63, 136));
+    roundrect(1020, 128, 1140, 160, 8, 8);
+
+    settextcolor(RGB(0, 63, 136));
+    settextstyle(16, 0, L"微软雅黑");
+
+    const wchar_t *refreshText = L"刷新";
+    int rw = textwidth(refreshText);
+    outtextxy(1020 + (120 - rw) / 2, 134, refreshText);
 
     // 提示
     if (!libTip.empty())
@@ -318,6 +333,22 @@ void drawSelectPage()
     drawCard(800, 235, L"银行管理");
 }
 
+void drawLibManagementPage() // 绘制管理员能额外看到的界面
+{
+    const wchar_t *labels[5] =
+        {
+            L"新  增",
+            L"修  改",
+            L"库  存",
+            L"上下架",
+            L"删  除"};
+
+    for (int i = 0; i < 5; ++i)
+    {
+        drawBottomButton(i + 3, labels[i]);
+    }
+}
+
 void drawAll()
 {
     cleardevice();
@@ -333,6 +364,10 @@ void drawAll()
     else if (page == Page::Library)
     {
         drawLibraryPage();
+        if (role == Role::libm)
+        {
+            drawLibManagementPage();
+        }
     }
 
     drawFooter();
@@ -422,18 +457,18 @@ int main()
                             if (userM.authenticateUser(toString(username), toString(password)))
                             {
                                 string userN = toString(username);
-                                switch(userN[0])
+                                switch (userN[0])
                                 {
-                                    case 'U':
+                                case 'U':
                                     role = Role::stu;
                                     break;
-                                    case 'S':
+                                case 'S':
                                     role = Role::stum;
                                     break;
-                                    case 'L':
+                                case 'L':
                                     role = Role::libm;
                                     break;
-                                    case 'B':
+                                case 'B':
                                     role = Role::bankm;
                                     break;
                                 }
@@ -464,10 +499,10 @@ int main()
                     }
                     else if (PtInRect(&stuR, p))
                     {
-                        if(role==Role::stum)
+                        if (role == Role::stum)
                         {
                             runStudentManagerGui();
-                            page=Page::Select;
+                            page = Page::Select;
                             drawAll();
                         }
                         else if (role == Role::stu)
@@ -488,9 +523,14 @@ int main()
                     RECT backR = {60, 85, 220, 120};
                     RECT tableR = {60, 216, 1140, 216 + 380};
                     RECT borrowR = {60, 620, 180, 660};
-                    RECT returnR = {200, 620, 320, 660};
-                    RECT refreshR = {340, 620, 460, 660};
-                    RECT searchR = {480, 620, 600, 660};
+                    RECT returnR = {195, 620, 315, 660};
+                    RECT refreshR = {1020, 128, 1140, 160};
+                    RECT searchR = {330, 620, 450, 660};
+                    RECT addR = {465, 620, 585, 660};
+                    RECT editR = {600, 620, 720, 660};
+                    RECT stockR = {735, 620, 855, 660};
+                    RECT statusR = {870, 620, 990, 660};
+                    RECT deleteR = {1005, 620, 1125, 660};
                     if (PtInRect(&backR, p))
                     {
                         page = Page::Select;
@@ -661,8 +701,208 @@ int main()
                         }
                         drawAll();
                     }
+                    else if (role == Role::libm && PtInRect(&addR, p))
+                    {
+                        wchar_t buf[512];
+                        if (InputBox(buf, 512, L"格式:编号|书名|作者|分类|册数", L"新增图书"))
+                        {
+                            wstring input = buf;
+                            vector<wstring> part;
+                            wstringstream ss(input);
+                            wstring token;
+
+                            while (getline(ss, token, L'|'))
+                            {
+                                part.push_back(token);
+                            }
+                            if (part.size() != 5)
+                            {
+                                libTip = L"格式错误!";
+                                libTipColor = RGB(200, 40, 40);
+                            }
+                            else
+                            {
+                                string id = toString(part[0]);
+                                string title = toString(part[1]);
+                                string author = toString(part[2]);
+                                string category = toString(part[3]);
+
+                                wstringstream nss(part[4]); // 处理数字
+                                int copies = 0;
+                                nss >> copies;
+
+                                if (id.empty() || title.empty() || author.empty() || category.empty() || copies <= 0)
+                                {
+                                    libTip = L"编号书名作者分类不能为空,且册数必须大于0!";
+                                    libTipColor = RGB(200, 40, 40);
+                                }
+                                else
+                                {
+                                    Book b(id, title, author, category, BookStatus::ON_SHELF, copies);
+                                    if (lib->addBook(b, reason))
+                                    {
+                                        lib->saveData(reason);
+                                        resetShown(); //重新生成表格目录
+                                        selectedBook = -1;
+                                        libTip = L"新增成功";
+                                        libTipColor = RGB(30, 140, 70);
+                                    }
+                                    else
+                                    {
+                                        libTip = toWstring(reason);
+                                        libTipColor = RGB(200, 40, 40);
+                                    }
+                                }
+                            }
+                            drawAll();
+                        }
+                    }
+                    else if (role == Role::libm && PtInRect(&editR, p))
+                    {
+                        if (selectedBook < 0)
+                        {
+                            libTip = L"请先选择一本书";
+                            libTipColor = RGB(200, 40, 40);
+                            drawAll();
+                        }
+                        else
+                        {
+                            Book b;
+                            lib->getBookAtIndex(selectedBook, b);
+                            wchar_t buf[256];
+                            if (InputBox(buf, 256, L"格式:新书名|新作者|新分类,置空不修改", L"修改图书"))
+                            {
+                                wstring input = buf;
+                                vector<wstring> part;
+                                wstringstream ss(input);
+                                wstring token;
+
+                                while (getline(ss, token, L'|'))
+                                {
+                                    part.push_back(token);
+                                }
+                                while (part.size() < 3 && !input.empty() && input.back() == L'|')
+                                {
+                                    part.push_back(L"");
+                                } // 处理最后一个字符为空被getline丢掉的情况
+                                if (part.size() != 3)
+                                {
+                                    libTip = L"格式错误!";
+                                    libTipColor = RGB(200, 40, 40);
+                                }
+                                else
+                                {
+                                    string newTitle = toString(part[0]);
+                                    string newAuthor = toString(part[1]);
+                                    string newCategory = toString(part[2]);
+                                    if (lib->updateBook(b.getBookId(), newTitle, newAuthor, newCategory, reason))
+                                    {
+                                        lib->saveData(reason);
+                                        libTip = L"修改成功";
+                                        libTipColor = RGB(30, 140, 70);
+                                    }
+                                    else
+                                    {
+                                        libTip = toWstring(reason);
+                                        libTipColor = RGB(200, 40, 40);
+                                    }
+                                }
+                            }
+                            drawAll();
+                        }
+                    }
+                    else if (role == Role::libm && PtInRect(&stockR, p)) // 调整库存
+                    {
+                        if (selectedBook < 0)
+                        {
+                            libTip = L"请先选择一本书";
+                            libTipColor = RGB(200, 40, 40);
+                            drawAll();
+                        }
+                        else
+                        {
+                            wchar_t buf[64];
+                            int newTotal = 0;
+                            Book b;
+                            lib->getBookAtIndex(selectedBook, b);
+                            if (InputBox(buf, 64, L"请输入新的库存数量", L"确定"))
+                            {
+                                wstringstream wss(buf);
+                                wss >> newTotal;
+                                if (newTotal < 0)
+                                {
+                                    libTip = L"库存必须是不小于 0 的整数";
+                                    libTipColor = RGB(200, 40, 40);
+                                }
+                                else if (lib->adjustCopies(b.getBookId(), newTotal, reason))
+                                {
+                                    lib->saveData(reason);
+                                    libTip = L"调整成功";
+                                    libTipColor = RGB(30, 140, 70);
+                                }
+                                else
+                                {
+                                    libTip = toWstring(reason);
+                                    libTipColor = RGB(200, 40, 40);
+                                }
+                            }
+                            drawAll();
+                        }
+                    }
+                    else if (role == Role::libm && PtInRect(&statusR, p))
+                    {
+                        if (selectedBook < 0)
+                        {
+                            libTip = L"请先选择一本书";
+                            libTipColor = RGB(200, 40, 40);
+                            drawAll();
+                        }
+                        else
+                        {
+                            Book b;
+                            lib->getBookAtIndex(selectedBook, b);
+                            BookStatus bs = b.isonshelf() ? BookStatus::OUT_SHELF : BookStatus::ON_SHELF;
+                            if (lib->setBookStatus(b.getBookId(), bs, reason))
+                            {
+                                lib->saveData(reason);
+                                libTip = L"状态已更新";
+                                libTipColor = RGB(30, 140, 70);
+                            }
+                            else
+                            {
+                                libTip = toWstring(reason);
+                                libTipColor = RGB(200, 40, 40);
+                            }
+                            drawAll();
+                        }
+                    }
+                    else if (role == Role::libm && PtInRect(&deleteR, p))
+                    {
+                        if (selectedBook < 0)
+                        {
+                            libTip = L"请先选择一本书";
+                            libTipColor = RGB(200, 40, 40);
+                            drawAll();
+                        }
+                        else
+                        {
+                            Book b;
+                            lib->getBookAtIndex(selectedBook, b);
+                            if (lib->removeBook(b.getBookId(), reason))
+                            {
+                                lib->saveData(reason);
+                                libTip = L"删除成功";
+                                libTipColor = RGB(30, 140, 70);
+                            }
+                            else
+                            {
+                                libTip = toWstring(reason);
+                                libTipColor = RGB(200, 40, 40);
+                            }
+                            drawAll();
+                        }
+                    }
                 }
-                
             }
 
             if (msg.message == WM_MOUSEWHEEL && page == Page::Library)
