@@ -35,6 +35,17 @@ string toString(const wstring &w)
     return s;
 }
 
+string trimWhitespace(const string &value)
+{
+    const string whitespace = " \t\n\r\f\v";
+    size_t first = value.find_first_not_of(whitespace);
+    if (first == string::npos)
+        return "";
+
+    size_t last = value.find_last_not_of(whitespace);
+    return value.substr(first, last - first + 1);
+}
+
 void drawHeader()
 {
     setfillcolor(RGB(0, 63, 136));
@@ -66,12 +77,18 @@ void showText(const string &text)
 
 bool inputText(const wchar_t *prompt, string &value)
 {
-    wchar_t buffer[256] = {};
-    if (!InputBox(buffer, 256, prompt, L"课程管理"))
-        return false;
+    while (true)
+    {
+        wchar_t buffer[256] = {};
+        if (!InputBox(buffer, 256, prompt, L"课程管理"))
+            return false;
 
-    value = toString(wstring(buffer));
-    return true;
+        value = trimWhitespace(toString(wstring(buffer)));
+        if (!value.empty())
+            return true;
+
+        showText("输入不能为空，请重新输入。");
+    }
 }
 
 bool parseScore(const string &text, float &score)

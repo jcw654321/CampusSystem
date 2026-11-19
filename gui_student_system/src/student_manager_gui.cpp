@@ -139,6 +139,17 @@ int hitStudentButton(int x, int y)
     return -1;
 }
 
+string trimWhitespace(const string &value)
+{
+    const string whitespace = " \t\n\r\f\v";
+    size_t first = value.find_first_not_of(whitespace);
+    if (first == string::npos)
+        return "";
+
+    size_t last = value.find_last_not_of(whitespace);
+    return value.substr(first, last - first + 1);
+}
+
 // 查找学生索引
 int findStudentIndex(const string &id)
 {
@@ -163,12 +174,20 @@ void drawCurrentPage()
 
 bool inputText(const wchar_t *prompt, string &value)
 {
-    wchar_t buffer[256] = {};
-    if (!InputBox(buffer, 256, prompt, L"学生管理"))
-        return false;
+    while (true)
+    {
+        wchar_t buffer[256] = {};
+        if (!InputBox(buffer, 256, prompt, L"学生管理"))
+            return false;
 
-    value = toString(wstring(buffer));
-    return true;
+        value = trimWhitespace(toString(wstring(buffer)));
+        if (!value.empty())
+            return true;
+        else{
+        showText("输入不能为空，请重新输入。");
+        return false;
+        }
+    }
 }
 
 void showText(const string &text)
@@ -195,7 +214,7 @@ bool inputFields(const wchar_t *prompt, size_t expectedCount,
 
         if (values.size() != expectedCount)
         {
-            showText("输入项数量不正确，请按提示重新输入。");
+            showText("输入项数量不正确或包含空项，请按提示重新输入。");
             return false;
         }
 
@@ -408,11 +427,11 @@ void runStudentManagerGui()
 
         if (button == 7)
         {
-            wchar_t buffer[64] = {};
-            if (!InputBox(buffer, 64, L"请输入要管理的学生学号"))
+            string studentId;
+            if (!inputText(L"请输入要管理的学生学号", studentId))
                 continue;
 
-            int selectedStudentIndex = findStudentIndex(toString(buffer));
+            int selectedStudentIndex = findStudentIndex(studentId);
             if (selectedStudentIndex < 0)
             {
                 MessageBoxW(GetHWnd(), L"没有找到该学生。", L"提示", MB_OK);

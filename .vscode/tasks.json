@@ -89,6 +89,31 @@
             "detail": "编译 bank_manage_system（银行管理）"
         },
         {
+            "label": "cl: build bank_gui (MSVC x64)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\gui_bank_system\\build_gui.cmd",
+            "options": {
+                "cwd": "${workspaceFolder}\\gui_bank_system",
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "detail": "编译 gui_bank_system（EasyX 银行管理界面）"
+        },
+        {
             "label": "cl: build gui (MSVC x64)",
             "type": "shell",
             "command": "${workspaceFolder}\\gui_library_system\\build_gui.cmd",
