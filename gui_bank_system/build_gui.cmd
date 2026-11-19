@@ -27,17 +27,28 @@ if defined EASYX_ROOT (
 )
 if not exist build mkdir build
 cl /nologo /EHsc /std:c++17 /utf-8 /W4 /MD /D_UNICODE /DUNICODE %EXTRA% ^
-    /I"..\bank_manage_system\include" gui_main.cpp ^
+    /I"..\bank_manage_system\include" gui_bank.cpp ^
     ..\bank_manage_system\src\BankAccount.cpp ^
     ..\bank_manage_system\src\SavingAccount.cpp ^
     ..\bank_manage_system\src\CreditAccount.cpp ^
     ..\bank_manage_system\src\Banksystem.cpp ^
     ..\bank_manage_system\src\BanksystemFile.cpp ^
-    /Fo"build\\" /Fe"build\gui.exe" ^
-    /link "%EASYXLIB%" user32.lib gdi32.lib winmm.lib shell32.lib
+    /c /Fo"build\\"
 if errorlevel 1 (
-    echo [FAILED] Check the errors above. EasyX Unicode x64 library is required.
+    echo [FAILED] C++ compilation failed.
     exit /b 1
 )
-echo [OK] %CD%\build\gui.exe
+lib /nologo /OUT:"build\gui_bank.lib" ^
+    "build\gui_bank.obj" ^
+    "build\BankAccount.obj" ^
+    "build\SavingAccount.obj" ^
+    "build\CreditAccount.obj" ^
+    "build\Banksystem.obj" ^
+    "build\BanksystemFile.obj"
+if errorlevel 1 (
+    echo [FAILED] Static library creation failed.
+    exit /b 1
+)
+echo [OK] %CD%\build\gui_bank.lib
+echo Link gui_bank.lib, %EASYXLIB%, user32.lib, gdi32.lib, winmm.lib, and shell32.lib in the calling application.
 exit /b 0
