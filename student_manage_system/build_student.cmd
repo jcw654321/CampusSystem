@@ -12,7 +12,7 @@ if errorlevel 1 (
 cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd ^
    /I. /Iinclude /I..\include ^
    src\main.cpp src\student.cpp src\student_manager.cpp ^
-   src\subject.cpp src\subject_manager.cpp ^
+   src\subject.cpp src\subject_manager.cpp src\fileoperate.cpp ^
    ..\src\user.cpp ^
    /Fo"build\\" /Fd"build\vc140.pdb" /Fe"build\main.exe"
 

@@ -5,6 +5,7 @@
 #include "student_manager.h"
 #include "subject_manager.h"
 #include "student_manager_gui.h"
+#include "course_manager_gui.h"
 #include <cstdlib>
 #include <sstream>
 #include <vector>
@@ -121,59 +122,6 @@ void drawStudentActionButtons()
     }
 }
 
-// 绘制课程管理菜单
-void drawCourseMenu()
-{
-    const wchar_t *labels[] = {
-        L"查看课程", L"添加课程", L"删除课程", L"修改成绩"};
-
-    setbkmode(TRANSPARENT);
-    settextcolor(RGB(33, 37, 41));
-    settextstyle(28, 0, L"微软雅黑");
-    outtextxy(60, 130, L"学生课程管理");
-
-    settextcolor(RGB(0, 63, 136));
-    settextstyle(18, 0, L"微软雅黑");
-    outtextxy(60, 92, L"<-返回");
-
-    for (int i = 0; i < 4; ++i)
-    {
-        int y = 190 + i * 72;
-
-        setfillcolor(WHITE);
-        setlinecolor(RGB(205, 212, 224));
-        fillroundrect(360, y, 840, y + 60, 12, 12);
-
-        settextstyle(22, 0, L"微软雅黑");
-        int textX = 360 + (480 - textwidth(labels[i])) / 2;
-        outtextxy(textX, y + 19, labels[i]);
-    }
-}
-
-enum class Page
-{
-    StudentMenu,
-    CourseMenu
-};
-
-Page currentPage = Page::StudentMenu;
-int selectedStudentIndex = -1;
-
-// 检测点击的按钮
-int hitVerticalButton(int x, int y, int count, int startY = 190)
-{
-    if (x < 360 || x > 840)
-        return -1;
-
-    for (int i = 0; i < count; ++i)
-    {
-        int top = startY + i * 72;
-        if (y >= top && y <= top + 60)
-            return i;
-    }
-    return -1;
-}
-
 int hitStudentButton(int x, int y)
 {
     const int startY = 170;
@@ -207,16 +155,8 @@ void drawCurrentPage()
     cleardevice();
     drawHeader();
     drawFooter();
-
-    if (currentPage == Page::StudentMenu)
-    {
-        drawStudentPage();
-        drawStudentActionButtons();
-    }
-    else
-    {
-        drawCourseMenu();
-    }
+    drawStudentPage();
+    drawStudentActionButtons();
 
     FlushBatchDraw(); // 整页画完后一次性显示
 }
@@ -438,64 +378,6 @@ void handleStudentAction(int action)
     }
 }
 
-void handleCourseAction(int action, Student &student)
-{
-    if (action == 0) // 查看课程
-    {
-        ostringstream result;
-        for (const subject &course : student.getSubjects())
-            result << course.getName() << "（" << course.getSubjectId()
-                   << "），教师：" << course.getTeacherName()
-                   << "，成绩：" << course.getScore() << '\n';
-
-        showText(result.str().empty() ? "该学生还没有课程。" : result.str());
-    }
-    else if (action == 1) // 添加课程
-    {
-        string name, id, teacher, scoreText;
-        if (!inputText(L"课程名称", name) ||
-            !inputText(L"课程编号", id) ||
-            !inputText(L"教师姓名", teacher) ||
-            !inputText(L"成绩（0 到 100）", scoreText))
-            return;
-
-        float score;
-        if (!parseScore(scoreText, score))
-        {
-            showText("成绩格式无效，应为 0 到 100。");
-            return;
-        }
-
-        subjectManager.addSubject(student, subject(name, id, teacher, score));
-        showText("课程已添加。");
-    }
-    else if (action == 2) // 删除课程
-    {
-        string id;
-        if (!inputText(L"请输入要删除的课程编号", id))
-            return;
-
-        subjectManager.removeSubject(student, id);
-        showText("已执行删除。");
-    }
-    else if (action == 3) // 修改成绩
-    {
-        string id, scoreText;
-        if (!inputText(L"课程编号", id) ||
-            !inputText(L"新成绩（0 到 100）", scoreText))
-            return;
-
-        float score;
-        if (!parseScore(scoreText, score))
-        {
-            showText("成绩格式无效，应为 0 到 100。");
-            return;
-        }
-
-        subjectManager.updateScore(student, id, score);
-        showText("已执行成绩更新。");
-    }
-}
 }
 
 void runStudentManagerGui()
@@ -503,8 +385,6 @@ void runStudentManagerGui()
     students = studentManager.loadStudentsFromFile();
     subjectManager.loadSubjectsFromfile(students);
 
-    currentPage = Page::StudentMenu;
-    selectedStudentIndex = -1;
     drawCurrentPage();
 
     ExMessage msg;
@@ -524,49 +404,28 @@ void runStudentManagerGui()
         if (msg.message != WM_LBUTTONDOWN)
             continue;
 
-        if (currentPage == Page::StudentMenu)
+        int button = hitStudentButton(msg.x, msg.y);
+
+        if (button == 7)
         {
-            int button = hitStudentButton(msg.x, msg.y);
+            wchar_t buffer[64] = {};
+            if (!InputBox(buffer, 64, L"请输入要管理的学生学号"))
+                continue;
 
-            if (button == 7)
+            int selectedStudentIndex = findStudentIndex(toString(buffer));
+            if (selectedStudentIndex < 0)
             {
-                wchar_t buffer[64] = {};
-                if (!InputBox(buffer, 64, L"请输入要管理的学生学号"))
-                    continue;
-
-                selectedStudentIndex = findStudentIndex(toString(buffer));
-                if (selectedStudentIndex < 0)
-                {
-                    MessageBoxW(GetHWnd(), L"没有找到该学生。", L"提示", MB_OK);
-                    continue;
-                }
-
-                currentPage = Page::CourseMenu;
-                drawCurrentPage();
-            }
-            else if (button >= 0 && button < 7)
-            {
-                handleStudentAction(button);
-                drawCurrentPage();
-            }
-        }
-        else
-        {
-            if (msg.x >= 60 && msg.x <= 180 &&
-                msg.y >= 92 && msg.y <= 120)
-            {
-                currentPage = Page::StudentMenu;
-                selectedStudentIndex = -1;
-                drawCurrentPage();
+                MessageBoxW(GetHWnd(), L"没有找到该学生。", L"提示", MB_OK);
                 continue;
             }
 
-            int action = hitVerticalButton(msg.x, msg.y, 4);
-            if (action >= 0 && selectedStudentIndex >= 0)
-            {
-                handleCourseAction(action, students[selectedStudentIndex]);
-                drawCurrentPage();
-            }
+            runCourseManagerGui(students[selectedStudentIndex], subjectManager);
+            drawCurrentPage();
+        }
+        else if (button >= 0 && button < 7)
+        {
+            handleStudentAction(button);
+            drawCurrentPage();
         }
     }
 
