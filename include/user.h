@@ -6,8 +6,8 @@ using namespace std;
 // 用户类，包含用户的基本信息和操作
 class User {
 public:
-    User(string name, string email, string userid, string password)
-        : name(name), email(email), userid(userid), password(password) {};
+    User(string name, string email, string userid, string password,string sex="")
+        : name(name), email(email), userid(userid), password(password),sex(sex) {};
     string getName() const;                       // 获取用户名
     string getEmail() const;                      // 获取邮箱
     string getUserid() const;                     // 获取用户ID

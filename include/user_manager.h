@@ -6,11 +6,14 @@
 
 class UserManager {
 public:
+    UserManager(string data_file);
     void addUser(const User& user);   // 添加用户
     void removeUser(const User& user);   // 删除用户
     User* findUser(const std::string& username);    // 查找用户
     bool authenticateUser(const std::string& username, const std::string& password);   // 验证用户
+    void loadData();
 
 private:
+    std::string dataFile;
     std::vector<User> users;
 };

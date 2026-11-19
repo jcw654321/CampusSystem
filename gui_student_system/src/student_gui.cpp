@@ -3,7 +3,10 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <filesystem>
 #include "student_gui.h"
+#include "student_manager.h"
+#include "subject_manager.h"
 using namespace std;
 namespace
 {
@@ -104,8 +107,43 @@ void drawStudentPage(const Student& student, StudentPage page)
 }
 }
 
-void runStudentGui(const Student& student)
+void runStudentGui(const string& userId)
 {
+    // 学生数据默认在 student_manage_system 目录下；
+    // 从图书 GUI 启动时工作目录可能是 library_manage_system，临时切过去。
+    std::filesystem::path oldDir = std::filesystem::current_path();
+
+    if (!std::filesystem::exists("data/student_data/student_data.csv") &&
+        std::filesystem::exists("../student_manage_system/data/student_data/student_data.csv"))
+    {
+        std::filesystem::current_path("../student_manage_system");
+    }
+
+    StudentManager manager("管理员", "", "admin", "");
+    vector<Student> students = manager.loadStudentsFromFile();
+
+    SubjectManager subjectManager("管理员", "", "admin", "");
+    subjectManager.loadSubjectsFromfile(students);
+
+    std::filesystem::current_path(oldDir);
+
+    Student *found = nullptr;
+    for (auto &s : students)
+    {
+        if (s.getUserid() == userId)
+        {
+            found = &s;
+            break;
+        }
+    }
+
+    if (found == nullptr)
+    {
+        MessageBoxW(GetHWnd(), L"没有找到该学生。", L"提示", MB_OK);
+        return;
+    }
+
+    Student student = *found;
     StudentPage page = StudentPage::Home;
     drawStudentPage(student, page);
 

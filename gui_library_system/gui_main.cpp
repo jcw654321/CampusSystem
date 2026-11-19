@@ -2,17 +2,40 @@
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <fstream>
 #include <wchar.h>
 #include "library_system.h"
+#include "library_admin_system.h"
+#include "user_manager.h"
+#include "user.h"
+#include "student_gui.h"
+#include "student_manager_gui.h"
+#include "course_manager_gui.h"
+
 
 // 定义枚举类page表示当前页面类型
 enum class Page
 {
     Login,
     Select,
-    Library
+    Library,
+    Student,
+    Bank
+};
+
+enum class Role
+{
+    stu,
+    stum,
+    libm,
+    bankm
 };
 Page page = Page::Login;
+Role role = Role::stu;
+
+UserManager userM("../data/user.csv");
+
 std::wstring username;
 std::wstring password;
 std::wstring tip;
@@ -282,7 +305,7 @@ void drawLibraryPage()
 
 void drawSelectPage()
 {
-    
+
     setbkmode(TRANSPARENT);
     settextcolor(RGB(108, 117, 125));
     settextstyle(20, 0, L"微软雅黑");
@@ -293,8 +316,6 @@ void drawSelectPage()
     drawCard(110, 235, L"学生管理");
     drawCard(455, 235, L"图书管理");
     drawCard(800, 235, L"银行管理");
-    
-
 }
 
 void drawAll()
@@ -322,15 +343,17 @@ int main()
 {
     initgraph(1200, 760);
     SetWindowTextW(GetHWnd(), L"校园综合管理系统");
-    SetWindowPos(GetHWnd(),nullptr,(GetSystemMetrics(SM_CXSCREEN)-1200)/2,(GetSystemMetrics(SM_CYSCREEN)-760)/2-100,0,0,SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
+    SetWindowPos(GetHWnd(), nullptr, (GetSystemMetrics(SM_CXSCREEN) - 1200) / 2, (GetSystemMetrics(SM_CYSCREEN) - 760) / 2 - 100, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
 
     setbkcolor(RGB(230, 236, 245));
     cleardevice();
 
-    BeginBatchDraw();//双缓冲绘图,防止屏幕一闪一闪,会先绘制到缓冲区,通过flush来推到主屏幕上
+    BeginBatchDraw(); // 双缓冲绘图,防止屏幕一闪一闪,会先绘制到缓冲区,通过flush来推到主屏幕上
 
-    LibrarySystem lib_("data/library.txt");
-    lib = &lib_;
+    LibrarySystem normalLib("data/library.txt");
+    LibraryAdminSystem adminLib("data/library.txt");
+    lib = &normalLib; // 登录前先初始化为普通对象
+    userM.loadData();
 
     if (!lib->loadData(reason))
     {
@@ -396,8 +419,32 @@ int main()
                         }
                         else
                         {
-                            page = Page::Select;
-                            tip.clear();
+                            if (userM.authenticateUser(toString(username), toString(password)))
+                            {
+                                string userN = toString(username);
+                                switch(userN[0])
+                                {
+                                    case 'U':
+                                    role = Role::stu;
+                                    break;
+                                    case 'S':
+                                    role = Role::stum;
+                                    break;
+                                    case 'L':
+                                    role = Role::libm;
+                                    break;
+                                    case 'B':
+                                    role = Role::bankm;
+                                    break;
+                                }
+                                page = Page::Select;
+                                tip.clear();
+                            }
+                            else
+                            {
+                                tip = L"用户名或密码错误";
+                                tipColor = RGB(200, 40, 40);
+                            }
                         }
                         drawAll();
                     }
@@ -405,6 +452,7 @@ int main()
                 else if (page == Page::Select)
                 {
                     RECT libR = {455, 235, 755, 675};
+                    RECT stuR = {110, 235, 410, 675};
 
                     if (PtInRect(&libR, p))
                     {
@@ -413,6 +461,26 @@ int main()
                         libTip.clear();
                         resetShown();
                         drawAll();
+                    }
+                    else if (PtInRect(&stuR, p))
+                    {
+                        if(role==Role::stum)
+                        {
+                            runStudentManagerGui();
+                            page=Page::Select;
+                            drawAll();
+                        }
+                        else if (role == Role::stu)
+                        {
+                            runStudentGui(toString(username));
+                            page = Page::Select;
+                            drawAll();
+                        }
+                        else
+                        {
+                            MessageBoxW(GetHWnd(), L"当前角色无权进入学生管理系统。",
+                                        L"提示", MB_OK);
+                        }
                     }
                 }
                 else if (page == Page::Library)
@@ -594,6 +662,7 @@ int main()
                         drawAll();
                     }
                 }
+                
             }
 
             if (msg.message == WM_MOUSEWHEEL && page == Page::Library)

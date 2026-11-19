@@ -1,4 +1,45 @@
 #include "user_manager.h"
+#include<fstream>
+#include<filesystem>
+#include<sstream>
+#include"user.h"
+
+static vector<string> splitLine(const string &line, char delim)
+{
+    vector<string> result;
+    string token;
+    stringstream ss(line);
+    while (getline(ss, token, delim))
+    {
+        result.push_back(token);
+    }
+    if (!line.empty() && line.back() == delim)
+    {
+        result.push_back(""); // 处理最后一个元素为分隔符的情况
+    }
+    return result;
+}
+
+UserManager::UserManager(std::string dataf):dataFile(dataf){}
+
+void UserManager::loadData() 
+{
+    ifstream in(dataFile);
+    vector<User> tmpUser;
+    string line;
+    getline(in,line);//跳过第一行
+    while(getline(in,line))
+    {
+        if(line.empty())
+        {
+            continue;
+        }
+        vector<string> vec = splitLine(line,',');
+        tmpUser.push_back(User(vec[1],vec[3],vec[0],vec[4],vec[2]));
+    }
+    users = tmpUser;
+    return;
+}
 
 void UserManager::addUser(const User& user) {
     users.push_back(user);
