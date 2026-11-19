@@ -3,8 +3,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "student_manager.h"
+#include "subject_manager.h"
 #include "student_gui.h"
 using namespace std;
+
 namespace
 {
 enum class StudentPage
@@ -104,8 +107,21 @@ void drawStudentPage(const Student& student, StudentPage page)
 }
 }
 
-void runStudentGui(const Student& student)
+void runStudentGui(const string& userid)
 {
+    StudentManager studentManager("", "", "", "");
+    SubjectManager subjectManager("", "", "", "");
+    vector<Student> students = studentManager.loadStudentsFromFile();
+    subjectManager.loadSubjectsFromfile(students);
+
+    const Student* found = studentManager.findStudentByUserid(students, userid);
+    if (found == nullptr)
+    {
+        MessageBoxW(GetHWnd(), L"没有找到对应的学生。", L"提示", MB_OK);
+        return;
+    }
+
+    const Student& student = *found;
     StudentPage page = StudentPage::Home;
     drawStudentPage(student, page);
 
