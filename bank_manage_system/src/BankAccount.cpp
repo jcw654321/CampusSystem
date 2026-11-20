@@ -10,17 +10,17 @@ BankAccount::BankAccount(const string &accountId, const string &studentId, int64
     this->balance = balance;
 }
 
-string BankAccount::getAccountId()
+string BankAccount::getAccountId() const
 {
     return accountId;
 }
 
-string BankAccount::getStudentId()
+string BankAccount::getStudentId() const
 {
     return studentId;
 }
 
-int64_t BankAccount::getBalance()
+int64_t BankAccount::getBalance() const
 {
     return balance;
 }

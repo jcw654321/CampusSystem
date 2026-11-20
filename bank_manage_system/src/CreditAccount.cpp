@@ -9,7 +9,7 @@ CreditAccount::CreditAccount(const string &accountId, const string &studentId, i
     this->creditLimit = creditLimit;
 }
 
-int64_t CreditAccount::getCreditLimit()
+int64_t CreditAccount::getCreditLimit() const
 {
     return creditLimit;
 }

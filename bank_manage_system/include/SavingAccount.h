@@ -10,6 +10,6 @@ class SavingAccount : public BankAccount
     double interestRate;
     SavingAccount(const std::string &accountId, const std::string &studentId, double interestRate,
                   std::int64_t balance = 0);
-    double getInterestRate();
+    double getInterestRate() const;
     void writeTo(std::ostream &out) const override;
 };

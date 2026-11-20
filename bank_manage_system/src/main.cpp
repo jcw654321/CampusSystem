@@ -10,13 +10,29 @@ using namespace std;
 
 // 独立控制台测试入口。接入主系统时不编译本文件，避免出现两个 main。
 // 此入口直接输入整数“分”；GUI 允许输入元，并转换成分后调用相同后端。
-int main()
+int main(int argc, char* argv[])
 {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
     // 独立测试入口没有统一登录页，显式提供测试身份；不用于主系统认证。
     User testUser("银行控制台测试", "", "bank-console-test", "");
-    Banksystem bankSystem(testUser);
+    // 仅用于独立测试：main.exe 默认管理员；main.exe --student 学号 测试学生。
+    // 正式接入时必须由主系统提供已验证的角色和学号，不能信任用户自选参数。
+    BankRole role = BankRole::Administrator;
+    string studentId;
+    if (argc == 3 && string(argv[1]) == "--student")
+    {
+        role = BankRole::Student;
+        studentId = argv[2];
+        if (studentId.empty()) return 1;
+    }
+    else if (argc != 1)
+    {
+        cout << "用法：main.exe 或 main.exe --student 学号（仅测试身份）" << endl;
+        return 1;
+    }
+    Banksystem bankSystem(testUser, role, studentId);
+    cout << (bankSystem.isAdministrator() ? "管理员测试模式" : "学生测试模式") << endl;
     error_code ec;
     bool hasFile = filesystem::exists("accounts.txt", ec);
     if (ec)
@@ -52,11 +68,18 @@ int main()
     // 菜单只负责输入输出，余额与流水由 bankSystem 管理。
     while (true)
     {
-        cout << "0.退出   1.查询交易流水  2.开储蓄账户    3.开信用账户    4.存款  5.取款  6.转账  "
-                "7.查询余额  8.保存账户"
-             << endl;
+        if (bankSystem.isAdministrator())
+            cout << "0.退出  1.查询流水  2.储蓄开户  3.信用开户  7.查询余额  8.保存" << endl;
+        else
+            cout << "0.退出  1.本人流水  4.存款  5.取款  6.转账  7.本人余额  8.保存" << endl;
         int choice;
-        cin >> choice;
+        if (!(cin >> choice)) break;
+        if ((bankSystem.isAdministrator() && choice >= 4 && choice <= 6) ||
+            (!bankSystem.isAdministrator() && (choice == 2 || choice == 3)))
+        {
+            cout << "当前身份无权执行此操作" << endl;
+            continue;
+        }
         if (choice == 0)
         {
             break;
@@ -164,7 +187,7 @@ int main()
             cout << "请输入账号：";
             string accountId;
             cin >> accountId;
-            BankAccount *account = bankSystem.findAccount(accountId);
+            const BankAccount *account = bankSystem.findAccount(accountId);
             if (account != nullptr)
             {
                 cout << "余额为：" << account->getBalance() << "分" << endl;

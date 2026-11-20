@@ -10,7 +10,7 @@ class CreditAccount : public BankAccount
     std::int64_t creditLimit;
     CreditAccount(const std::string &accountId, const std::string &studentId,
                   std::int64_t creditLimit, std::int64_t balance = 0);
-    std::int64_t getCreditLimit();
+    std::int64_t getCreditLimit() const;
     bool withdraw(std::int64_t amount) override;
     void writeTo(std::ostream &out) const override;
 };
