@@ -3,6 +3,7 @@
 #include "CreditAccount.h"
 #include <iostream>
 #include <limits>
+#include <stdexcept>
 
 using namespace std;
 
@@ -13,33 +14,76 @@ namespace
 constexpr double DefaultSavingInterestRate = 0.05;
 }
 
-bool Banksystem::accountExists(const string &accountId) const
+Banksystem::Banksystem(const User& currentUser, BankRole role,
+                       const string& currentStudentId, const filesystem::path& dataDirectory)
+    : User(currentUser), role(role), currentStudentId(currentStudentId),
+      dataDirectory(filesystem::absolute(dataDirectory))
 {
-    for (const auto &account : accounts)
-    {
-        if (account->getAccountId() == accountId)
-        {
-            return true;
-        }
-    }
-    return false;
+    // 不验证密码，只检查调用方是否给出了完整的已登录身份。
+    if (getUserid().empty() ||
+        (role != BankRole::Administrator && role != BankRole::Student) ||
+        (role == BankRole::Student && currentStudentId.empty()))
+        throw invalid_argument("银行需要有效角色；学生身份还必须包含已关联的学号。");
 }
 
-BankAccount *Banksystem::findAccount(const string &accountId)
+BankAccount* Banksystem::findAccountInternal(const string& accountId) const
 {
-    for (const auto &account : accounts)
-    {
-        if (account->getAccountId() == accountId)
-        {
+    for (const auto& account : accounts)
+        if (account->accountId == accountId)
             return account.get();
-        }
-    }
     return nullptr;
+}
+
+bool Banksystem::accountExists(const string& accountId) const
+{
+    return findAccountInternal(accountId) != nullptr;
+}
+
+bool Banksystem::canViewAccount(const BankAccount& account) const
+{
+    return isAdministrator() || account.studentId == currentStudentId;
+}
+
+const BankAccount* Banksystem::findAccount(const string& accountId) const
+{
+    const BankAccount* account = findAccountInternal(accountId);
+    if (account && canViewAccount(*account))
+        return account;
+    return nullptr;
+}
+
+bool Banksystem::canOperateAccount(const string& accountId) const
+{
+    // 当前版本管理员不代办存取款、转账。
+    const BankAccount* account = findAccountInternal(accountId);
+    return role == BankRole::Student && account && account->studentId == currentStudentId;
+}
+
+vector<const BankAccount*> Banksystem::getAccounts() const
+{
+    vector<const BankAccount*> visible;
+    for (const auto& account : accounts)
+        if (canViewAccount(*account))
+            visible.push_back(account.get());
+    return visible;
+}
+
+vector<Transaction> Banksystem::getTransactions() const
+{
+    vector<Transaction> visible;
+    for (const auto& transaction : transactions)
+    {
+        // 学生能看到涉及本人任一账户的流水，包括别人转给自己的记录。
+        if (isAdministrator() || canOperateAccount(transaction.fromAccountId) ||
+            canOperateAccount(transaction.toAccountId))
+            visible.push_back(transaction);
+    }
+    return visible;
 }
 
 bool Banksystem::openSavingAccount(const string &accountId, const string &studentId)
 {
-    if (accountExists(accountId))
+    if (!isAdministrator() || accountId.empty() || studentId.empty() || accountExists(accountId))
     {
         return false;
     }
@@ -51,7 +95,8 @@ bool Banksystem::openSavingAccount(const string &accountId, const string &studen
 bool Banksystem::openCreditAccount(const string &accountId, const string &studentId,
                                    int64_t creditLimit)
 {
-    if (creditLimit < 0 || accountExists(accountId))
+    if (!isAdministrator() || accountId.empty() || studentId.empty() ||
+        creditLimit < 0 || accountExists(accountId))
     {
         return false;
     }
@@ -61,7 +106,9 @@ bool Banksystem::openCreditAccount(const string &accountId, const string &studen
 
 bool Banksystem::withdraw(const string &accountId, int64_t amount)
 {
-    BankAccount *account = findAccount(accountId);
+    if (!canOperateAccount(accountId))
+        return false;
+    BankAccount *account = findAccountInternal(accountId);
     if (account == nullptr)
     {
         return false;
@@ -77,7 +124,9 @@ bool Banksystem::withdraw(const string &accountId, int64_t amount)
 
 bool Banksystem::deposit(const string &accountId, int64_t amount)
 {
-    BankAccount *account = findAccount(accountId);
+    if (!canOperateAccount(accountId))
+        return false;
+    BankAccount *account = findAccountInternal(accountId);
     if (account == nullptr)
     {
         return false;
@@ -92,8 +141,10 @@ bool Banksystem::deposit(const string &accountId, int64_t amount)
 
 bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId, int64_t amount)
 {
-    BankAccount *fromAccount = findAccount(fromAccountId);
-    BankAccount *toAccount = findAccount(toAccountId);
+    if (!canOperateAccount(fromAccountId))
+        return false;
+    BankAccount *fromAccount = findAccountInternal(fromAccountId);
+    BankAccount *toAccount = findAccountInternal(toAccountId);
     if (fromAccount == nullptr || toAccount == nullptr)
     {
         return false;
@@ -128,13 +179,13 @@ bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId
 
 void Banksystem::showTransactions(const string &accountId)
 {
-    if (!accountExists(accountId))
+    if (!findAccount(accountId))
     {
-        cout << "账号不存在" << endl;
+        cout << "账号不存在或无权查看" << endl;
         return;
     }
     bool found = false;
-    for (const auto &transaction : transactions)
+    for (const auto &transaction : getTransactions())
     {
         if (transaction.fromAccountId == accountId || transaction.toAccountId == accountId)
         {

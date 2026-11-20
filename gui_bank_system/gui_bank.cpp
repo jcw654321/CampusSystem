@@ -5,6 +5,7 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 #define NOMINMAX
 #include <graphics.h>
@@ -125,14 +126,22 @@ struct ActionButton
     BankAction action;
     const wchar_t *label;
 };
-constexpr ActionButton ActionButtons[] = {
+// 两种身份各有自己的按钮列表，绘制和点击共用同一份列表。
+const std::vector<ActionButton> AdminButtons = {
     {BankAction::OpenSaving, L"储蓄开户"}, {BankAction::OpenCredit, L"信用开户"},
-    {BankAction::Deposit, L"存款"},        {BankAction::Withdraw, L"取款"},
-    {BankAction::Transfer, L"转账"},       {BankAction::Details, L"账户详情"},
-    {BankAction::History, L"账户流水"},    {BankAction::Save, L"保存"}};
+    {BankAction::Details, L"账户详情"}, {BankAction::History, L"账户流水"},
+    {BankAction::Save, L"保存"}};
+const std::vector<ActionButton> StudentButtons = {
+    {BankAction::Deposit, L"存款"}, {BankAction::Withdraw, L"取款"},
+    {BankAction::Transfer, L"转账"}, {BankAction::Details, L"账户详情"},
+    {BankAction::History, L"账户流水"}, {BankAction::Save, L"保存"}};
+std::vector<ActionButton> activeButtons;
 
 // 每次进入银行，用主系统传入的用户创建业务对象。
 std::unique_ptr<Banksystem> bank;
+// 只缓存后端允许当前用户查看的内容，不持有全体用户的可修改账户容器。
+std::vector<const BankAccount*> visibleAccounts;
+std::vector<Transaction> visibleTransactions;
 bool showingHistory = false;    // false 显示账户，true 显示流水
 bool hasUnsavedChanges = false; // 保存失败时阻止继续交易，允许重试
 int firstVisibleRow = 0;        // 当前页第一条记录在 visibleIndices 中的位置
@@ -256,13 +265,15 @@ bool saveBankData()
 // 四、生成显示列表：账户按关键字筛选，流水按所选账号筛选。
 void refreshVisibleRows()
 {
+    visibleAccounts = bank->getAccounts();
+    visibleTransactions = bank->getTransactions();
     visibleIndices.clear();
     if (showingHistory)
     {
         // 最近的流水排在前面；序号取原始位置，不虚构后端没有记录的时间。
-        for (size_t i = bank->transactions.size(); i > 0; --i)
+        for (size_t i = visibleTransactions.size(); i > 0; --i)
         {
-            const auto &transaction = bank->transactions[i - 1];
+            const auto &transaction = visibleTransactions[i - 1];
             if (selectedAccountId.empty() || transaction.fromAccountId == selectedAccountId ||
                 transaction.toAccountId == selectedAccountId)
             {
@@ -272,9 +283,9 @@ void refreshVisibleRows()
     }
     else
     {
-        for (size_t i = 0; i < bank->accounts.size(); ++i)
+        for (size_t i = 0; i < visibleAccounts.size(); ++i)
         {
-            const auto &account = bank->accounts[i];
+            const auto &account = visibleAccounts[i];
             bool matchesKeyword =
                 searchKeyword.empty() ||
                 toWide(account->accountId).find(searchKeyword) != std::wstring::npos ||
@@ -367,7 +378,7 @@ void drawRows()
         int position = firstVisibleRow + row;
         bool exists = position < static_cast<int>(visibleIndices.size());
         bool active = exists && !showingHistory &&
-                      bank->accounts[visibleIndices[position]]->accountId == selectedAccountId;
+                      visibleAccounts[visibleIndices[position]]->accountId == selectedAccountId;
 
         setfillcolor(active ? RGB(220, 235, 255) : WHITE);
         solidrectangle(60, y, 1140, y + 38);
@@ -381,7 +392,7 @@ void drawRows()
         std::array<std::wstring, 5> values;
         if (showingHistory)
         {
-            const auto& transaction = bank->transactions[index];
+            const auto& transaction = visibleTransactions[index];
             values = {
                 std::to_wstring(index + 1), toWide(transaction.type), moneyText(transaction.amount),
                 transaction.fromAccountId.empty() ? L"—" : toWide(transaction.fromAccountId),
@@ -390,8 +401,8 @@ void drawRows()
         }
         else
         {
-            const auto& account = bank->accounts[index];
-            auto credit = dynamic_cast<CreditAccount*>(account.get());
+            const auto& account = visibleAccounts[index];
+            auto credit = dynamic_cast<const CreditAccount*>(account);
             values = {
                 toWide(account->accountId), toWide(account->studentId),
                 credit ? L"信用账户" : L"储蓄账户", moneyText(account->balance),
@@ -426,13 +437,13 @@ void drawActions()
         drawButton(60, 625, 160, L"返回账户");
         return;
     }
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < static_cast<int>(activeButtons.size()); ++i)
     {
-        BankAction type = ActionButtons[i].action;
+        BankAction type = activeButtons[i].action;
         bool opening = type == BankAction::OpenSaving || type == BankAction::OpenCredit;
         bool enabled = type == BankAction::Save ||
                        (!hasUnsavedChanges && (opening || !selectedAccountId.empty()));
-        drawButton(60 + i * 137, 625, 121, ActionButtons[i].label, enabled);
+        drawButton(60 + i * 137, 625, 121, activeButtons[i].label, enabled);
     }
 }
 
@@ -446,30 +457,43 @@ void drawBankPage()
     drawText(700, 27, L"当前用户：" + toWide(bank->getName())
              + L"（" + toWide(bank->getUserid()) + L"）", 16, WHITE);
     drawText(60, 92, showingHistory ? L"< 返回账户" : L"< 退出银行管理", 18, Blue);
-    drawText(60, 130, showingHistory ? L"交易流水" : L"银行管理", 28);
-    std::wstring subtitle = L"储蓄账户 / 信用账户";
+    std::wstring title = L"我的银行";
+    std::wstring subtitle = L"学生 · 学号：" + toWide(bank->getCurrentStudentId());
+    if (bank->isAdministrator())
+    {
+        title = L"银行管理";
+        subtitle = L"银行管理员";
+    }
     if (showingHistory)
     {
-        subtitle = selectedAccountId.empty() ? L"全部账户" : L"账号：" + toWide(selectedAccountId);
+        title = L"交易流水";
+        subtitle = bank->isAdministrator() ? L"全部账户" : L"我的账户";
+        if (!selectedAccountId.empty())
+            subtitle = L"账号：" + toWide(selectedAccountId);
     }
+    drawText(60, 130, title, 28);
     drawText(265, 141, subtitle, 17, Muted);
     drawText(60, 180,
-             L"账户总数  " + std::to_wstring(bank->accounts.size()) + L"    交易笔数  " +
-                 std::to_wstring(bank->transactions.size()) +
+             (bank->isAdministrator() ? L"账户总数  " : L"我的账户数  ") + std::to_wstring(visibleAccounts.size()) + L"    交易笔数  " +
+                 std::to_wstring(visibleTransactions.size()) +
                  (hasUnsavedChanges ? L"    待保存" : L"    数据已同步"),
              18, Blue);
     if (!showingHistory)
     {
         drawButton(680, 125, 140, L"搜索账户");
         drawButton(840, 125, 140, L"显示全部");
-        drawButton(1000, 125, 140, L"全部流水");
+        drawButton(1000, 125, 140, bank->isAdministrator() ? L"全部流水" : L"我的流水");
     }
     drawTableHeader();
     drawRows();
     if (visibleIndices.empty())
     {
-        drawText(400, 390, showingHistory ? L"暂无交易流水" : L"暂无匹配账户，可开户或显示全部", 20,
-                 Muted);
+        std::wstring emptyMessage = L"暂无本人账户，请联系银行管理员";
+        if (bank->isAdministrator())
+            emptyMessage = L"暂无匹配账户，可开户或显示全部";
+        if (showingHistory)
+            emptyMessage = L"暂无交易流水";
+        drawText(400, 390, emptyMessage, 20, Muted);
     }
     drawPagination();
     drawActions();
@@ -525,17 +549,18 @@ bool openAccount(bool creditAccount)
 
     selectedAccountId = accountId;
     searchKeyword.clear();
-    firstVisibleRow = (static_cast<int>(bank->accounts.size()) - 1) / RowsPerPage * RowsPerPage;
+    refreshVisibleRows();
+    firstVisibleRow = (static_cast<int>(visibleAccounts.size()) - 1) / RowsPerPage * RowsPerPage;
     return true;
 }
 
-void showAccountDetails(BankAccount &account)
+void showAccountDetails(const BankAccount &account)
 {
     std::wstring info = L"账号：" + toWide(account.accountId) + L"\n学号：" +
                         toWide(account.studentId) + L"\n余额：" + moneyText(account.balance) +
                         L" 元";
 
-    auto credit = dynamic_cast<CreditAccount *>(&account);
+    auto credit = dynamic_cast<const CreditAccount *>(&account);
     if (credit)
     {
         info += L"\n类型：信用账户\n信用额度：" + moneyText(credit->getCreditLimit()) + L" 元";
@@ -612,7 +637,7 @@ bool performTransaction(BankAction type)
     }
     if (!succeeded)
     {
-        setStatusMessage(L"操作失败：可用余额不足、超出信用额度或收款余额超限。");
+        setStatusMessage(L"操作失败：无权操作、金额不足或超出额度范围。");
     }
     return succeeded;
 }
@@ -620,6 +645,18 @@ bool performTransaction(BankAction type)
 // 一次按钮操作：检查条件 → 执行业务 → 保存 → 更新列表。
 void handleAction(BankAction type)
 {
+    bool openingAccount = type == BankAction::OpenSaving || type == BankAction::OpenCredit;
+    bool movingMoney = type == BankAction::Deposit || type == BankAction::Withdraw || type == BankAction::Transfer;
+    if ((openingAccount && !bank->isAdministrator()) || (movingMoney && bank->isAdministrator()))
+    {
+        setStatusMessage(L"当前身份无权执行此操作。");
+        return;
+    }
+    if (movingMoney && !bank->canOperateAccount(selectedAccountId))
+    {
+        setStatusMessage(L"请先选择本人的银行账户。");
+        return;
+    }
     if (type == BankAction::Save)
     {
         saveBankData();
@@ -630,9 +667,8 @@ void handleAction(BankAction type)
         setStatusMessage(L"请先重试保存，再办理下一笔业务。");
         return;
     }
-    bool opening = type == BankAction::OpenSaving || type == BankAction::OpenCredit;
-    BankAccount *account = bank->findAccount(selectedAccountId);
-    if (!opening && !account)
+    const BankAccount *account = bank->findAccount(selectedAccountId);
+    if (!openingAccount && !account)
     {
         setStatusMessage(L"请先点击表格选择账户。");
         return;
@@ -722,17 +758,31 @@ bool loadBankData()
 
 } // namespace
 
-void runBankGui(const User& currentUser, const std::filesystem::path& dataDirectory)
+void runBankGui(const User& currentUser, BankRole role, const std::string& studentId,
+                const std::filesystem::path& dataDirectory)
 {
     // 每次进入重新加载数据；窗口和双缓冲仍由主系统管理。
-    bank = std::make_unique<Banksystem>(currentUser, dataDirectory);
+    try
+    {
+        bank = std::make_unique<Banksystem>(currentUser, role, studentId, dataDirectory);
+    }
+    catch (const std::invalid_argument&)
+    {
+        MessageBoxW(GetHWnd(), L"银行身份信息不完整，请由调用方传入角色和学生学号。", L"无法进入", MB_OK);
+        return;
+    }
+    activeButtons = bank->isAdministrator() ? AdminButtons : StudentButtons;
+    visibleAccounts.clear();
+    visibleTransactions.clear();
     showingHistory = false;
     hasUnsavedChanges = false;
     firstVisibleRow = 0;
     selectedAccountId.clear();
     searchKeyword.clear();
     visibleIndices.clear();
-    statusMessage = L"请选择账户办理业务；金额单位为元。";
+    statusMessage = bank->isAdministrator()
+        ? L"管理员可开户、查看全部账户及流水；不代办存取款和转账。"
+        : L"仅显示本人账户；可存款、取款，并向有效银行账号转账。";
     statusColor = Muted;
     if (!loadBankData())
     {
@@ -801,7 +851,7 @@ void runBankGui(const User& currentUser, const std::filesystem::path& dataDirect
                 {
                     int position = firstVisibleRow + (mouse.y - tableR.top) / 38;
                     if (position < static_cast<int>(visibleIndices.size()))
-                        selectedAccountId = bank->accounts[visibleIndices[position]]->accountId;
+                        selectedAccountId = visibleAccounts[visibleIndices[position]]->accountId;
                 }
                 else if (PtInRect(&searchR, mouse))
                 {
@@ -826,14 +876,14 @@ void runBankGui(const User& currentUser, const std::filesystem::path& dataDirect
                 }
                 else
                 {
-                    // 底部八个业务按钮按绘制时的相同间距排列。
-                    for (int i = 0; i < 8; ++i)
+                    // 按当前角色的按钮列表处理点击，位置与绘制保持一致。
+                    for (int i = 0; i < static_cast<int>(activeButtons.size()); ++i)
                     {
                         int left = 60 + i * 137;
                         RECT actionR = {left, 625, left + 121, 665};
                         if (PtInRect(&actionR, mouse))
                         {
-                            handleAction(ActionButtons[i].action);
+                            handleAction(activeButtons[i].action);
                             break;
                         }
                     }

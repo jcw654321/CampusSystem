@@ -9,7 +9,7 @@ SavingAccount::SavingAccount(const string &accountId, const string &studentId, d
     this->interestRate = interestRate;
 }
 
-double SavingAccount::getInterestRate()
+double SavingAccount::getInterestRate() const
 {
     return interestRate;
 }

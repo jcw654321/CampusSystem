@@ -17,8 +17,7 @@ call "%BANK_VSROOT%\VC\Auxiliary\Build\vcvars64.bat" >nul
 if errorlevel 1 exit /b 1
 if not exist build mkdir build
 cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd ^
-    /I"%~dp0include" /I"%~dp0..\include" ^
-    "%~dp0src\*.cpp" "%~dp0..\src\user.cpp" ^
+    /I"%~dp0include" /I"%~dp0..\include" "%~dp0src\*.cpp" "%~dp0..\src\user.cpp" ^
     /Fo"%~dp0build\\" /Fd"%~dp0build\vc140.pdb" /Fe"%~dp0build\main.exe"
 if errorlevel 1 (
     echo [FAILED] Bank console build failed.
