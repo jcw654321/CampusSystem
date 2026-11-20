@@ -1,441 +1,895 @@
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <filesystem>
+#include <limits>
+#include <string>
+#include <vector>
+#include <stdexcept>
+
 #define NOMINMAX
 #include <graphics.h>
 #include <windows.h>
-#include <algorithm>
-#include <filesystem>
-#include <string>
-#include <vector>
+
 #include "Banksystem.h"
 #include "CreditAccount.h"
 #include "gui_bank.h"
-#include <cstdint>
-#include <limits>
 
+// 阅读顺序：先看文件末尾的 runBankGui，直接看主循环中的点击分支，再看 handleAction。
+// GUI 只负责输入、显示和调用后端；账户规则在 bank_manage_system 中。
+
+// 一、金额转换：界面输入“元”，业务层和文件一律使用整数“分”。
 // 从十进制文本直接解析“分”，避免浮点数舍入；不接受符号、指数或空白。
-inline bool parseMoney(const std::wstring& text, std::int64_t& cents) {
-    if (text.empty()) return false;
+inline bool parseMoney(const std::wstring &text, std::int64_t &cents)
+{
+    if (text.empty())
+    {
+        return false;
+    }
+
     std::int64_t value = 0;
-    bool dot = false;
-    int decimals = 0, integers = 0;
-    const auto max = (std::numeric_limits<std::int64_t>::max)();
-    for (wchar_t c : text) {
-        if (c == L'.' && !dot && integers > 0) { dot = true; continue; }
-        if (c < L'0' || c > L'9') return false;
-        if (dot && ++decimals > 2) return false;
-        if (!dot) ++integers;
+    bool hasDecimalPoint = false;
+    int decimalDigits = 0;
+    int integerDigits = 0;
+    const auto maxCents = (std::numeric_limits<std::int64_t>::max)();
+
+    // 逐位累积数字：12.50 先得到 1250；不足两位小数时在循环后补零。
+    for (wchar_t c : text)
+    {
+        if (c == L'.' && !hasDecimalPoint && integerDigits > 0)
+        {
+            hasDecimalPoint = true;
+            continue;
+        }
+
+        if (c < L'0' || c > L'9')
+        {
+            return false;
+        }
+
+        if (hasDecimalPoint)
+        {
+            ++decimalDigits;
+            if (decimalDigits > 2)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            ++integerDigits;
+        }
+
         int digit = c - L'0';
-        if (value > (max - digit) / 10) return false;
+        // 先检查再乘 10，避免整数溢出。
+        if (value > (maxCents - digit) / 10)
+        {
+            return false;
+        }
+
         value = value * 10 + digit;
     }
-    if (dot && decimals == 0) return false;
-    for (int i = decimals; i < 2; ++i) {
-        if (value > max / 10) return false;
+
+    if (hasDecimalPoint && decimalDigits == 0)
+    {
+        return false;
+    }
+
+    for (int i = decimalDigits; i < 2; ++i)
+    {
+        if (value > maxCents / 10)
+        {
+            return false;
+        }
+
         value *= 10;
     }
+
     cents = value;
     return value > 0;
 }
 
-inline std::wstring moneyText(std::int64_t cents) {
+inline std::wstring moneyText(std::int64_t cents)
+{
+    // 信用账户可能是负余额。
     // 同样支持 INT64_MIN，不能直接对有符号数取负。
     auto magnitude = cents < 0 ? std::uint64_t(-(cents + 1)) + 1 : std::uint64_t(cents);
     auto fraction = magnitude % 100;
-    return (cents < 0 ? L"-" : L"") + std::to_wstring(magnitude / 100)
-        + L"." + (fraction < 10 ? L"0" : L"") + std::to_wstring(fraction);
+    return (cents < 0 ? L"-" : L"") + std::to_wstring(magnitude / 100) + L"." +
+           (fraction < 10 ? L"0" : L"") + std::to_wstring(fraction);
 }
 
-namespace {
-constexpr COLORREF Blue = RGB(0, 63, 136), Ink = RGB(33, 37, 41);
-constexpr COLORREF Muted = RGB(108, 117, 125), Background = RGB(230, 236, 245);
-constexpr int Rows = 8;
-Banksystem bank;
-bool history = false, dirty = false;
-int first = 0;
-std::string selected;
-std::wstring keyword, tip = L"请选择账户办理业务；金额单位为元。";
-COLORREF tipColor = Muted;
-std::vector<size_t> shown;
+namespace
+{
+// 二、界面配置与状态。以下变量仅在本文件使用。
+constexpr COLORREF Blue = RGB(0, 63, 136);
+constexpr COLORREF Ink = RGB(33, 37, 41);
+constexpr COLORREF Muted = RGB(108, 117, 125);
+constexpr int RowsPerPage = 8;
+constexpr std::array<int, 5> ColumnX = {80, 320, 550, 710, 950};
+constexpr std::array<int, 5> ColumnWidths = {220, 210, 140, 220, 170};
 
-std::wstring wide(const std::string& s) {
-    if (s.empty()) return L"";
-    int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(), nullptr, 0);
-    std::wstring result(n, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(), result.data(), n);
+// 按钮顺序与操作一一对应，业务处理中不再使用 0、1、2 等数字判断。
+enum class BankAction
+{
+    OpenSaving,
+    OpenCredit,
+    Deposit,
+    Withdraw,
+    Transfer,
+    Details,
+    History,
+    Save
+};
+struct ActionButton
+{
+    BankAction action;
+    const wchar_t *label;
+};
+// 两种身份各有自己的按钮列表，绘制和点击共用同一份列表。
+const std::vector<ActionButton> AdminButtons = {
+    {BankAction::OpenSaving, L"储蓄开户"}, {BankAction::OpenCredit, L"信用开户"},
+    {BankAction::Details, L"账户详情"}, {BankAction::History, L"账户流水"},
+    {BankAction::Save, L"保存"}};
+const std::vector<ActionButton> StudentButtons = {
+    {BankAction::Deposit, L"存款"}, {BankAction::Withdraw, L"取款"},
+    {BankAction::Transfer, L"转账"}, {BankAction::Details, L"账户详情"},
+    {BankAction::History, L"账户流水"}, {BankAction::Save, L"保存"}};
+std::vector<ActionButton> activeButtons;
+
+// 每次进入银行，用主系统传入的用户创建业务对象。
+std::unique_ptr<Banksystem> bank;
+// 只缓存后端允许当前用户查看的内容，不持有全体用户的可修改账户容器。
+std::vector<const BankAccount*> visibleAccounts;
+std::vector<Transaction> visibleTransactions;
+bool showingHistory = false;    // false 显示账户，true 显示流水
+bool hasUnsavedChanges = false; // 保存失败时阻止继续交易，允许重试
+int firstVisibleRow = 0;        // 当前页第一条记录在 visibleIndices 中的位置
+std::string selectedAccountId;
+std::wstring searchKeyword;
+std::wstring statusMessage = L"请选择账户办理业务；金额单位为元。";
+COLORREF statusColor = Muted;
+// 保存原容器的下标；搜索和分页只改变显示顺序，不移动实际账户或流水。
+std::vector<size_t> visibleIndices;
+
+// 三、文字转换、输入对话框与保存。
+std::wstring toWide(const std::string &text)
+{
+    if (text.empty())
+    {
+        return L"";
+    }
+
+    int length =
+        MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
+    std::wstring result(length, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), result.data(),
+                        length);
     return result;
 }
-std::string utf8(const std::wstring& s) {
-    if (s.empty()) return "";
-    int n = WideCharToMultiByte(CP_UTF8, 0, s.data(), (int)s.size(), nullptr, 0, nullptr, nullptr);
-    std::string result(n, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, s.data(), (int)s.size(), result.data(), n, nullptr, nullptr);
+
+std::string toUtf8(const std::wstring &text)
+{
+    if (text.empty())
+    {
+        return "";
+    }
+
+    int length = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                                     nullptr, 0, nullptr, nullptr);
+    std::string result(length, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), result.data(),
+                        length, nullptr, nullptr);
     return result;
 }
-void message(const std::wstring& s, bool error = true) {
-    tip = s;
-    tipColor = error ? RGB(190, 45, 45) : RGB(30, 125, 80);
+
+void setStatusMessage(const std::wstring &text, bool error = true)
+{
+    statusMessage = text;
+    statusColor = error ? RGB(190, 45, 45) : RGB(30, 125, 80);
 }
-bool ask(const wchar_t* prompt, std::wstring& value) {
+
+bool inputText(const wchar_t *prompt, std::wstring &value)
+{
     wchar_t buffer[128] = {};
-    if (!InputBox(buffer, 128, prompt, L"银行管理")) return false;
+    if (!InputBox(buffer, 128, prompt, L"银行管理"))
+    {
+        return false;
+    }
+
     value = buffer;
     return true;
 }
-bool askId(const wchar_t* prompt, std::string& value) {
+
+bool inputId(const wchar_t *prompt, std::string &value)
+{
     std::wstring input;
-    if (!ask(prompt, input)) return false;
-    if (input.empty() || input.size() > 32 || input.find_first_not_of(
-        L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-") != std::wstring::npos) {
-        message(L"编号须为 1–32 位字母、数字、下划线或短横线。");
+    if (!inputText(prompt, input))
+    {
         return false;
     }
-    value = utf8(input);
+
+    if (input.empty() || input.size() > 32 ||
+        input.find_first_not_of(
+            L"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-") !=
+            std::wstring::npos)
+    {
+        setStatusMessage(L"编号须为 1–32 位字母、数字、下划线或短横线。");
+        return false;
+    }
+
+    value = toUtf8(input);
     return true;
 }
-bool askAmount(const wchar_t* prompt, std::int64_t& amount) {
+
+bool inputAmount(const wchar_t *prompt, std::int64_t &amount)
+{
     std::wstring input;
-    if (!ask(prompt, input)) return false;
-    if (!parseMoney(input, amount)) {
-        message(L"请输入大于 0 的金额，最多两位小数，且不得超出范围。");
+    if (!inputText(prompt, input))
+    {
         return false;
     }
+
+    if (!parseMoney(input, amount))
+    {
+        setStatusMessage(L"请输入大于 0 的金额，最多两位小数，且不得超出范围。");
+        return false;
+    }
+
     return true;
 }
 
 // 复用后端文件格式；失败时保留内存结果并阻止继续交易，允许重试保存。
-bool save() {
-    bool accountsOk = bank.saveAccounts();
-    bool transactionsOk = accountsOk && bank.saveTransactions();
-    dirty = !(accountsOk && transactionsOk);
-    if (dirty) message(L"保存失败：结果仍在内存中，请点击“保存”重试，暂勿关闭程序。");
-    else message(L"账户和交易流水已保存。", false);
-    return !dirty;
+bool saveBankData()
+{
+    bool accountsOk = bank->saveAccounts();
+    bool transactionsOk = false;
+    if (accountsOk)
+    {
+        transactionsOk = bank->saveTransactions();
+    }
+    hasUnsavedChanges = !(accountsOk && transactionsOk);
+
+    if (hasUnsavedChanges)
+    {
+        setStatusMessage(L"保存失败：结果仍在内存中，请点击“保存”重试，暂勿关闭程序。");
+    }
+    else
+    {
+        setStatusMessage(L"账户和交易流水已保存。", false);
+    }
+
+    return !hasUnsavedChanges;
 }
-void refresh() {
-    shown.clear();
-    if (history) {
+
+// 四、生成显示列表：账户按关键字筛选，流水按所选账号筛选。
+void refreshVisibleRows()
+{
+    visibleAccounts = bank->getAccounts();
+    visibleTransactions = bank->getTransactions();
+    visibleIndices.clear();
+    if (showingHistory)
+    {
         // 最近的流水排在前面；序号取原始位置，不虚构后端没有记录的时间。
-        for (size_t i = bank.transactions.size(); i > 0; --i) {
-            const auto& t = bank.transactions[i - 1];
-            if (selected.empty() || t.fromAccountId == selected || t.toAccountId == selected)
-                shown.push_back(i - 1);
-        }
-    } else {
-        for (size_t i = 0; i < bank.accounts.size(); ++i) {
-            const auto& a = bank.accounts[i];
-            if (keyword.empty() || wide(a->accountId).find(keyword) != std::wstring::npos
-                || wide(a->studentId).find(keyword) != std::wstring::npos) shown.push_back(i);
+        for (size_t i = visibleTransactions.size(); i > 0; --i)
+        {
+            const auto &transaction = visibleTransactions[i - 1];
+            if (selectedAccountId.empty() || transaction.fromAccountId == selectedAccountId ||
+                transaction.toAccountId == selectedAccountId)
+            {
+                visibleIndices.push_back(i - 1);
+            }
         }
     }
-    first = std::min(first, shown.empty() ? 0 : int((shown.size() - 1) / Rows) * Rows);
+    else
+    {
+        for (size_t i = 0; i < visibleAccounts.size(); ++i)
+        {
+            const auto &account = visibleAccounts[i];
+            bool matchesKeyword =
+                searchKeyword.empty() ||
+                toWide(account->accountId).find(searchKeyword) != std::wstring::npos ||
+                toWide(account->studentId).find(searchKeyword) != std::wstring::npos;
+            if (matchesKeyword)
+            {
+                visibleIndices.push_back(i);
+            }
+        }
+    }
+
+    int lastPageStart =
+        visibleIndices.empty()
+            ? 0
+            : static_cast<int>((visibleIndices.size() - 1) / RowsPerPage) * RowsPerPage;
+    firstVisibleRow = std::min(firstVisibleRow, lastPageStart);
 }
-void text(int x, int y, const std::wstring& s, int size = 18, COLORREF color = Ink) {
+
+// 页面切换后统一回到第一页，并重新生成显示列表。
+void showPage(bool showHistory)
+{
+    showingHistory = showHistory;
+    firstVisibleRow = 0;
+    refreshVisibleRows();
+}
+
+void scrollPage(int offset)
+{
+    firstVisibleRow = std::max(0, firstVisibleRow + offset);
+    refreshVisibleRows();
+}
+
+// 五、绘图：基础控件 → 表格和按钮 → 完整页面。
+void drawText(int x, int y, const std::wstring &s, int size = 18, COLORREF color = Ink)
+{
     settextstyle(size, 0, L"微软雅黑");
     settextcolor(color);
     outtextxy(x, y, s.c_str());
 }
-void cell(int x, int y, int width, std::wstring s) {
+
+void drawCell(int x, int y, int width, std::wstring value)
+{
     settextstyle(16, 0, L"微软雅黑");
-    if (textwidth(s.c_str()) > width) {
-        while (!s.empty() && textwidth((s + L"…").c_str()) > width) s.pop_back();
-        s += L"…";
+    if (textwidth(value.c_str()) > width)
+    {
+        while (!value.empty() && textwidth((value + L"…").c_str()) > width)
+        {
+            value.pop_back();
+        }
+
+        value += L"…";
     }
-    text(x, y, s, 16);
+
+    drawText(x, y, value, 16);
 }
-void button(int x, int y, int width, const wchar_t* label, bool enabled = true) {
+
+void drawButton(int x, int y, int width, const wchar_t *label, bool enabled = true)
+{
     setfillcolor(enabled ? Blue : RGB(164, 177, 194));
     setlinecolor(enabled ? Blue : RGB(164, 177, 194));
     fillroundrect(x, y, x + width, y + 40, 8, 8);
     settextstyle(18, 0, L"微软雅黑");
-    text(x + (width - textwidth(label)) / 2, y + 9, label, 18, WHITE);
+    drawText(x + (width - textwidth(label)) / 2, y + 9, label, 18, WHITE);
 }
-bool hit(int x, int y, int left, int top, int width, int height = 40) {
-    return x >= left && x < left + width && y >= top && y < top + height;
-}
-void draw() {
-    cleardevice();
-    setbkmode(TRANSPARENT);
-    setfillcolor(Blue); solidrectangle(0, 0, 1200, 72);
-    text(40, 22, L"华南理工大学  校园综合管理系统", 26, WHITE);
-    text(60, 92, history ? L"< 返回账户" : L"< 退出银行管理", 18, Blue);
-    text(60, 130, history ? L"交易流水" : L"银行管理", 28);
-    text(265, 141, history ? (selected.empty() ? L"全部账户" : L"账号：" + wide(selected))
-        : L"储蓄账户 / 信用账户", 17, Muted);
-    text(60, 180, L"账户总数  " + std::to_wstring(bank.accounts.size()) + L"    交易笔数  "
-        + std::to_wstring(bank.transactions.size()) + (dirty ? L"    待保存" : L"    数据已同步"), 18, Blue);
-    if (!history) {
-        button(680, 125, 140, L"搜索账户"); button(840, 125, 140, L"显示全部");
-        button(1000, 125, 140, L"全部流水");
+
+// 绘图按“表头、数据行、分页、按钮”分块；标题和页脚直接放在 draw 中。
+
+void drawTableHeader()
+{
+    setfillcolor(RGB(245, 248, 252));
+    solidrectangle(60, 222, 1140, 262);
+
+    const wchar_t *accountHeaders[] = {L"账号", L"关联学号", L"账户类型", L"余额（元）",
+                                       L"信用额度（元）"};
+    const wchar_t *historyHeaders[] = {L"流水序号", L"交易类型", L"金额（元）", L"转出账号",
+                                       L"转入账号"};
+
+    for (int column = 0; column < 5; ++column)
+    {
+        const wchar_t *header = showingHistory ? historyHeaders[column] : accountHeaders[column];
+        drawText(ColumnX[column], 233, header, 16, Muted);
     }
-    setfillcolor(RGB(245, 248, 252)); solidrectangle(60, 222, 1140, 262);
-    const int columns[] = {80, 320, 550, 710, 950};
-    const wchar_t* accountHeaders[] = {L"账号", L"关联学号", L"账户类型", L"余额（元）", L"信用额度（元）"};
-    const wchar_t* historyHeaders[] = {L"流水序号", L"交易类型", L"金额（元）", L"转出账号", L"转入账号"};
-    for (int c = 0; c < 5; ++c) text(columns[c], 233, history ? historyHeaders[c] : accountHeaders[c], 16, Muted);
-    for (int row = 0; row < Rows; ++row) {
-        int y = 262 + row * 38, pos = first + row;
-        bool exists = pos < (int)shown.size();
-        bool active = exists && !history && bank.accounts[shown[pos]]->accountId == selected;
+}
+
+void drawRows()
+{
+    for (int row = 0; row < RowsPerPage; ++row)
+    {
+        int y = 262 + row * 38;
+        int position = firstVisibleRow + row;
+        bool exists = position < static_cast<int>(visibleIndices.size());
+        bool active = exists && !showingHistory &&
+                      visibleAccounts[visibleIndices[position]]->accountId == selectedAccountId;
+
         setfillcolor(active ? RGB(220, 235, 255) : WHITE);
         solidrectangle(60, y, 1140, y + 38);
-        if (!exists) continue;
-        if (history) {
-            const auto& t = bank.transactions[shown[pos]];
-            cell(80, y + 10, 220, std::to_wstring(shown[pos] + 1));
-            cell(320, y + 10, 210, wide(t.type));
-            cell(550, y + 10, 140, moneyText(t.amount));
-            cell(710, y + 10, 220, t.fromAccountId.empty() ? L"—" : wide(t.fromAccountId));
-            cell(950, y + 10, 170, t.toAccountId.empty() ? L"—" : wide(t.toAccountId));
-        } else {
-            auto& a = bank.accounts[shown[pos]];
-            auto credit = dynamic_cast<CreditAccount*>(a.get());
-            cell(80, y + 10, 220, wide(a->accountId)); cell(320, y + 10, 210, wide(a->studentId));
-            cell(550, y + 10, 140, credit ? L"信用账户" : L"储蓄账户");
-            cell(710, y + 10, 220, moneyText(a->balance));
-            cell(950, y + 10, 170, credit ? moneyText(credit->getCreditLimit()) : L"—");
+        if (!exists)
+        {
+            continue;
+        }
+
+        size_t index = visibleIndices[position];
+        // 在这里直接准备本行五列的数据，不再经过多个行绘制函数。
+        std::array<std::wstring, 5> values;
+        if (showingHistory)
+        {
+            const auto& transaction = visibleTransactions[index];
+            values = {
+                std::to_wstring(index + 1), toWide(transaction.type), moneyText(transaction.amount),
+                transaction.fromAccountId.empty() ? L"—" : toWide(transaction.fromAccountId),
+                transaction.toAccountId.empty() ? L"—" : toWide(transaction.toAccountId)
+            };
+        }
+        else
+        {
+            const auto& account = visibleAccounts[index];
+            auto credit = dynamic_cast<const CreditAccount*>(account);
+            values = {
+                toWide(account->accountId), toWide(account->studentId),
+                credit ? L"信用账户" : L"储蓄账户", moneyText(account->balance),
+                credit ? moneyText(credit->getCreditLimit()) : L"—"
+            };
+        }
+        for (size_t column = 0; column < values.size(); ++column)
+        {
+            drawCell(ColumnX[column], y + 10, ColumnWidths[column], values[column]);
         }
     }
-    if (shown.empty()) text(400, 390, history ? L"暂无交易流水" : L"暂无匹配账户，可开户或显示全部", 20, Muted);
-    text(60, 582, L"共 " + std::to_wstring(shown.size()) + L" 条    第 " + std::to_wstring(first / Rows + 1)
-        + L" / " + std::to_wstring(std::max(1, ((int)shown.size() + Rows - 1) / Rows)) + L" 页", 16, Muted);
-    button(900, 575, 110, L"上一页", first > 0);
-    button(1030, 575, 110, L"下一页", first + Rows < (int)shown.size());
-    if (!history) {
-        const wchar_t* labels[] = {L"储蓄开户", L"信用开户", L"存款", L"取款", L"转账", L"账户详情", L"账户流水", L"保存"};
-        for (int i = 0; i < 8; ++i)
-            button(60 + i * 137, 625, 121, labels[i], i == 7 || (!dirty && (i < 2 || !selected.empty())));
-    } else button(60, 625, 160, L"返回账户");
-    text(60, 678, tip, 16, tipColor);
-    setlinecolor(RGB(205, 212, 224)); line(0, 706, 1200, 706);
-    text(405, 724, L"2026 华南理工大学 · 校园综合管理系统", 16, RGB(120, 128, 140));
+}
+
+void drawPagination()
+{
+    int pageCount =
+        std::max(1, (static_cast<int>(visibleIndices.size()) + RowsPerPage - 1) / RowsPerPage);
+    std::wstring pageText = L"共 " + std::to_wstring(visibleIndices.size()) + L" 条    第 " +
+                            std::to_wstring(firstVisibleRow / RowsPerPage + 1) + L" / " +
+                            std::to_wstring(pageCount) + L" 页";
+    drawText(60, 582, pageText, 16, Muted);
+
+    drawButton(900, 575, 110, L"上一页", firstVisibleRow > 0);
+    drawButton(1030, 575, 110, L"下一页",
+               firstVisibleRow + RowsPerPage < static_cast<int>(visibleIndices.size()));
+}
+
+void drawActions()
+{
+    if (showingHistory)
+    {
+        drawButton(60, 625, 160, L"返回账户");
+        return;
+    }
+    for (int i = 0; i < static_cast<int>(activeButtons.size()); ++i)
+    {
+        BankAction type = activeButtons[i].action;
+        bool opening = type == BankAction::OpenSaving || type == BankAction::OpenCredit;
+        bool enabled = type == BankAction::Save ||
+                       (!hasUnsavedChanges && (opening || !selectedAccountId.empty()));
+        drawButton(60 + i * 137, 625, 121, activeButtons[i].label, enabled);
+    }
+}
+
+void drawBankPage()
+{
+    cleardevice();
+    setbkmode(TRANSPARENT);
+    setfillcolor(Blue);
+    solidrectangle(0, 0, 1200, 72);
+    drawText(40, 22, L"华南理工大学  校园综合管理系统", 26, WHITE);
+    drawText(700, 27, L"当前用户：" + toWide(bank->getName())
+             + L"（" + toWide(bank->getUserid()) + L"）", 16, WHITE);
+    drawText(60, 92, showingHistory ? L"< 返回账户" : L"< 退出银行管理", 18, Blue);
+    std::wstring title = L"我的银行";
+    std::wstring subtitle = L"学生 · 学号：" + toWide(bank->getCurrentStudentId());
+    if (bank->isAdministrator())
+    {
+        title = L"银行管理";
+        subtitle = L"银行管理员";
+    }
+    if (showingHistory)
+    {
+        title = L"交易流水";
+        subtitle = bank->isAdministrator() ? L"全部账户" : L"我的账户";
+        if (!selectedAccountId.empty())
+            subtitle = L"账号：" + toWide(selectedAccountId);
+    }
+    drawText(60, 130, title, 28);
+    drawText(265, 141, subtitle, 17, Muted);
+    drawText(60, 180,
+             (bank->isAdministrator() ? L"账户总数  " : L"我的账户数  ") + std::to_wstring(visibleAccounts.size()) + L"    交易笔数  " +
+                 std::to_wstring(visibleTransactions.size()) +
+                 (hasUnsavedChanges ? L"    待保存" : L"    数据已同步"),
+             18, Blue);
+    if (!showingHistory)
+    {
+        drawButton(680, 125, 140, L"搜索账户");
+        drawButton(840, 125, 140, L"显示全部");
+        drawButton(1000, 125, 140, bank->isAdministrator() ? L"全部流水" : L"我的流水");
+    }
+    drawTableHeader();
+    drawRows();
+    if (visibleIndices.empty())
+    {
+        std::wstring emptyMessage = L"暂无本人账户，请联系银行管理员";
+        if (bank->isAdministrator())
+            emptyMessage = L"暂无匹配账户，可开户或显示全部";
+        if (showingHistory)
+            emptyMessage = L"暂无交易流水";
+        drawText(400, 390, emptyMessage, 20, Muted);
+    }
+    drawPagination();
+    drawActions();
+    drawText(60, 678, statusMessage, 16, statusColor);
+    setlinecolor(RGB(205, 212, 224));
+    line(0, 706, 1200, 706);
+    drawText(405, 724, L"2026 华南理工大学 · 校园综合管理系统", 16, RGB(120, 128, 140));
     FlushBatchDraw();
 }
 
-void action(int which) {
-    if (which == 7) { save(); return; }
-    if (dirty) { message(L"请先重试保存，再办理下一笔业务。"); return; }
-    if (which < 2) {
-        std::string id, student;
-        if (!askId(L"请输入新账号（1–32 位字母、数字、下划线或短横线）", id)) return;
-        if (bank.accountExists(id)) { message(L"账号已存在，请使用其他账号。"); return; }
-        if (!askId(L"请输入关联学号", student)) return;
-        std::int64_t limit = 0;
-        if (which == 1 && !askAmount(L"请输入信用额度（元，最多两位小数）", limit)) return;
-        bool ok = which == 0 ? bank.openSavingAccount(id, student) : bank.openCreditAccount(id, student, limit);
-        if (!ok) { message(L"开户失败，请检查账号和信用额度。"); return; }
-        selected = id; keyword.clear(); first = (int(bank.accounts.size()) - 1) / Rows * Rows;
-    } else {
-        auto a = bank.findAccount(selected);
-        if (!a) { message(L"请先点击表格选择账户。"); return; }
-        if (which == 6) { history = true; first = 0; refresh(); return; }
-        if (which == 5) {
-            std::wstring info = L"账号：" + wide(a->accountId) + L"\n学号：" + wide(a->studentId)
-                + L"\n余额：" + moneyText(a->balance) + L" 元";
-            auto credit = dynamic_cast<CreditAccount*>(a);
-            info += credit ? L"\n类型：信用账户\n信用额度：" + moneyText(credit->getCreditLimit()) + L" 元" : L"\n类型：储蓄账户";
-            MessageBoxW(GetHWnd(), info.c_str(), L"账户详情", MB_OK | MB_ICONINFORMATION);
-            return;
-        }
-        std::string target;
-        if (which == 4) {
-            if (!askId(L"请输入收款账号", target)) return;
-            if (target == selected) { message(L"不能向同一账户转账。"); return; }
-            if (!bank.accountExists(target)) { message(L"收款账户不存在。"); return; }
-        }
-        std::int64_t amount;
-        if (!askAmount(L"请输入金额（元，大于 0，最多两位小数）", amount)) return;
-        std::wstring summary = L"账号：" + wide(selected) + L"\n金额：" + moneyText(amount) + L" 元";
-        if (which == 4) summary += L"\n收款账号：" + wide(target);
-        if (MessageBoxW(GetHWnd(), summary.c_str(), which == 2 ? L"确认存款" : which == 3 ? L"确认取款" : L"确认转账",
-            MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return;
-        bool ok = which == 2 ? bank.deposit(selected, amount) : which == 3 ? bank.withdraw(selected, amount) : bank.Transfer(selected, target, amount);
-        if (!ok) { message(L"操作失败：可用余额不足、超出信用额度或收款余额超限。"); return; }
+// 六、业务按钮：收集输入后调用 Banksystem，不在界面里计算余额。
+bool openAccount(bool creditAccount)
+{
+    std::string accountId;
+    std::string studentId;
+
+    if (!inputId(L"请输入新账号（1–32 位字母、数字、下划线或短横线）", accountId))
+    {
+        return false;
     }
-    dirty = true;
-    if (save()) message(L"业务办理成功，账户与流水已保存。", false);
-    refresh();
+
+    if (bank->accountExists(accountId))
+    {
+        setStatusMessage(L"账号已存在，请使用其他账号。");
+        return false;
+    }
+
+    if (!inputId(L"请输入关联学号", studentId))
+    {
+        return false;
+    }
+
+    std::int64_t creditLimit = 0;
+    if (creditAccount && !inputAmount(L"请输入信用额度（元，最多两位小数）", creditLimit))
+    {
+        return false;
+    }
+
+    bool opened = false;
+    if (creditAccount)
+    {
+        opened = bank->openCreditAccount(accountId, studentId, creditLimit);
+    }
+    else
+    {
+        opened = bank->openSavingAccount(accountId, studentId);
+    }
+    if (!opened)
+    {
+        setStatusMessage(L"开户失败，请检查账号和信用额度。");
+        return false;
+    }
+
+    selectedAccountId = accountId;
+    searchKeyword.clear();
+    refreshVisibleRows();
+    firstVisibleRow = (static_cast<int>(visibleAccounts.size()) - 1) / RowsPerPage * RowsPerPage;
+    return true;
 }
 
-bool canExit() {
-    if (!dirty || save()) return true;
-    MessageBoxW(GetHWnd(), L"数据尚未保存，请检查目录写入权限后重试。", L"保存失败", MB_OK | MB_ICONERROR);
+void showAccountDetails(const BankAccount &account)
+{
+    std::wstring info = L"账号：" + toWide(account.accountId) + L"\n学号：" +
+                        toWide(account.studentId) + L"\n余额：" + moneyText(account.balance) +
+                        L" 元";
+
+    auto credit = dynamic_cast<const CreditAccount *>(&account);
+    if (credit)
+    {
+        info += L"\n类型：信用账户\n信用额度：" + moneyText(credit->getCreditLimit()) + L" 元";
+    }
+    else
+    {
+        info += L"\n类型：储蓄账户";
+    }
+
+    MessageBoxW(GetHWnd(), info.c_str(), L"账户详情", MB_OK | MB_ICONINFORMATION);
+}
+
+// 存取款和转账共用输入、确认流程，具体业务通过有名字的操作类型区分。
+bool performTransaction(BankAction type)
+{
+    std::string target;
+    if (type == BankAction::Transfer)
+    {
+        if (!inputId(L"请输入收款账号", target))
+        {
+            return false;
+        }
+        if (target == selectedAccountId)
+        {
+            setStatusMessage(L"不能向同一账户转账。");
+            return false;
+        }
+        if (!bank->accountExists(target))
+        {
+            setStatusMessage(L"收款账户不存在。");
+            return false;
+        }
+    }
+    std::int64_t amount = 0;
+    if (!inputAmount(L"请输入金额（元，大于 0，最多两位小数）", amount))
+    {
+        return false;
+    }
+
+    const wchar_t *title = L"确认转账";
+    if (type == BankAction::Deposit)
+    {
+        title = L"确认存款";
+    }
+    if (type == BankAction::Withdraw)
+    {
+        title = L"确认取款";
+    }
+    std::wstring summary =
+        L"账号：" + toWide(selectedAccountId) + L"\n金额：" + moneyText(amount) + L" 元";
+    if (type == BankAction::Transfer)
+    {
+        summary += L"\n收款账号：" + toWide(target);
+    }
+    if (MessageBoxW(GetHWnd(), summary.c_str(), title, MB_OKCANCEL | MB_ICONQUESTION) != IDOK)
+    {
+        return false;
+    }
+
+    bool succeeded = false;
+    switch (type)
+    {
+    case BankAction::Deposit:
+        succeeded = bank->deposit(selectedAccountId, amount);
+        break;
+    case BankAction::Withdraw:
+        succeeded = bank->withdraw(selectedAccountId, amount);
+        break;
+    case BankAction::Transfer:
+        succeeded = bank->Transfer(selectedAccountId, target, amount);
+        break;
+    default:
+        return false;
+    }
+    if (!succeeded)
+    {
+        setStatusMessage(L"操作失败：无权操作、金额不足或超出额度范围。");
+    }
+    return succeeded;
+}
+
+// 一次按钮操作：检查条件 → 执行业务 → 保存 → 更新列表。
+void handleAction(BankAction type)
+{
+    bool openingAccount = type == BankAction::OpenSaving || type == BankAction::OpenCredit;
+    bool movingMoney = type == BankAction::Deposit || type == BankAction::Withdraw || type == BankAction::Transfer;
+    if ((openingAccount && !bank->isAdministrator()) || (movingMoney && bank->isAdministrator()))
+    {
+        setStatusMessage(L"当前身份无权执行此操作。");
+        return;
+    }
+    if (movingMoney && !bank->canOperateAccount(selectedAccountId))
+    {
+        setStatusMessage(L"请先选择本人的银行账户。");
+        return;
+    }
+    if (type == BankAction::Save)
+    {
+        saveBankData();
+        return;
+    }
+    if (hasUnsavedChanges)
+    {
+        setStatusMessage(L"请先重试保存，再办理下一笔业务。");
+        return;
+    }
+    const BankAccount *account = bank->findAccount(selectedAccountId);
+    if (!openingAccount && !account)
+    {
+        setStatusMessage(L"请先点击表格选择账户。");
+        return;
+    }
+
+    bool changed = false;
+    switch (type)
+    {
+    case BankAction::OpenSaving:
+        changed = openAccount(false);
+        break;
+    case BankAction::OpenCredit:
+        changed = openAccount(true);
+        break;
+    case BankAction::Deposit:
+    case BankAction::Withdraw:
+    case BankAction::Transfer:
+        changed = performTransaction(type);
+        break;
+    case BankAction::Details:
+        showAccountDetails(*account);
+        return;
+    case BankAction::History:
+        showPage(true);
+        return;
+    case BankAction::Save:
+        return; // 已在上面处理
+    }
+    if (changed)
+    {
+        hasUnsavedChanges = true;
+        if (saveBankData())
+        {
+            setStatusMessage(L"业务办理成功，账户与流水已保存。", false);
+        }
+        refreshVisibleRows();
+    }
+}
+
+bool canLeaveBank()
+{
+    if (!hasUnsavedChanges)
+    {
+        return true;
+    }
+    if (saveBankData())
+    {
+        return true;
+    }
+
+    MessageBoxW(GetHWnd(), L"数据尚未保存，请检查目录写入权限后重试。", L"保存失败",
+                MB_OK | MB_ICONERROR);
     return false;
 }
 
-// 禁用系统关闭菜单，所有常规退出入口均经过 canExit，避免漏掉保存失败提示。
-bool load() {
+bool loadBankData()
+{
     std::error_code ec;
-    bool hasAccounts = std::filesystem::exists("accounts.txt", ec);
-    if (ec) return false;
-    bool hasTransactions = std::filesystem::exists("transactions.txt", ec);
-    if (ec || hasAccounts != hasTransactions) return false;
-    if (!hasAccounts) return true;
-    return bank.loadAccounts() && bank.loadTransactions();
-}
-
-void resetState() {
-    bank = Banksystem{};
-    history = false;
-    dirty = false;
-    first = 0;
-    selected.clear();
-    keyword.clear();
-    tip = L"请选择账户办理业务；金额单位为元。";
-    tipColor = Muted;
-    shown.clear();
-}
-
-bool initializeDataDirectory(const std::filesystem::path& dataDirectory) {
-    std::error_code ec;
-    std::filesystem::current_path(dataDirectory, ec);
-    if (ec || !load()) {
-        MessageBoxW(nullptr, L"银行数据目录不可用，或账户/流水文件缺失、格式错误。\n请确保两份文件配套，原文件未修改。",
-            L"加载失败", MB_OK | MB_ICONERROR);
+    if (!std::filesystem::is_directory(bank->getDataDirectory(), ec) || ec)
+    {
         return false;
     }
-    return true;
-}
-
-HANDLE acquireInstanceLock() {
-    HANDLE lock = CreateMutexW(nullptr, TRUE, L"Local\\CampusBankGui");
-    if (!lock || GetLastError() == ERROR_ALREADY_EXISTS) {
-        MessageBoxW(nullptr, L"银行前端已经运行，请使用已打开的窗口。", L"提示", MB_OK);
-        if (lock) CloseHandle(lock);
-        return nullptr;
+    bool hasAccounts = std::filesystem::exists(bank->getDataDirectory() / "accounts.txt", ec);
+    if (ec)
+    {
+        return false;
     }
-    return lock;
-}
 
-void initializeWindow() {
-    initgraph(1200, 760);
-    SetWindowTextW(GetHWnd(), L"校园综合管理系统 - 银行管理");
-    EnableMenuItem(GetSystemMenu(GetHWnd(), FALSE), SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
-    setbkcolor(Background);
-    BeginBatchDraw();
-    refresh();
-    draw();
-}
-
-void handleKeyDown(int key, bool& running) {
-    if (key != VK_ESCAPE) return;
-    if (history) {
-        history = false;
-        first = 0;
-        refresh();
-    } else {
-        running = !canExit();
+    bool hasTransactions = std::filesystem::exists(bank->getDataDirectory() / "transactions.txt", ec);
+    if (ec || hasAccounts != hasTransactions)
+    {
+        return false;
     }
-}
 
-void handleMouseDown(int x, int y, bool& running) {
-    if (hit(x, y, 60, 90, 200, 30) || (history && hit(x, y, 60, 625, 160))) {
-        if (history) {
-            history = false;
-            first = 0;
-            refresh();
-        } else {
-            running = !canExit();
-        }
-    } else if (hit(x, y, 900, 575, 110)) {
-        first = std::max(0, first - Rows);
-    } else if (hit(x, y, 1030, 575, 110)) {
-        if (first + Rows < (int)shown.size()) first += Rows;
-    } else if (!history) {
-        if (hit(x, y, 60, 262, 1080, Rows * 38)) {
-            int pos = first + (y - 262) / 38;
-            if (pos < (int)shown.size()) selected = bank.accounts[shown[pos]]->accountId;
-        } else if (hit(x, y, 680, 125, 140)) {
-            std::wstring input;
-            if (ask(L"请输入账号或学号关键字（留空显示全部）", input)) {
-                keyword = input;
-                selected.clear();
-                first = 0;
-                refresh();
-            }
-        } else if (hit(x, y, 840, 125, 140)) {
-            keyword.clear();
-            selected.clear();
-            first = 0;
-            refresh();
-        } else if (hit(x, y, 1000, 125, 140)) {
-            selected.clear();
-            history = true;
-            first = 0;
-            refresh();
-        } else {
-            for (int i = 0; i < 8; ++i) {
-                if (hit(x, y, 60 + i * 137, 625, 121)) {
-                    action(i);
-                    break;
-                }
-            }
-        }
+    if (!hasAccounts)
+    {
+        return true;
     }
-}
 
-void handleMessage(const ExMessage& msg, bool& running) {
-    if (msg.message == WM_KEYDOWN) {
-        handleKeyDown(msg.vkcode, running);
-    } else if (msg.message == WM_MOUSEWHEEL) {
-        first = std::max(0, first + (msg.wheel > 0 ? -Rows : Rows));
-        refresh();
-    } else if (msg.message == WM_LBUTTONDOWN) {
-        handleMouseDown(msg.x, msg.y, running);
+    // 流水会检查关联账号，因此必须先加载账户，再加载流水。
+    if (!bank->loadAccounts())
+    {
+        return false;
     }
+    return bank->loadTransactions();
 }
 
-void runEventLoop() {
+} // namespace
+
+void runBankGui(const User& currentUser, BankRole role, const std::string& studentId,
+                const std::filesystem::path& dataDirectory)
+{
+    // 每次进入重新加载数据；窗口和双缓冲仍由主系统管理。
+    try
+    {
+        bank = std::make_unique<Banksystem>(currentUser, role, studentId, dataDirectory);
+    }
+    catch (const std::invalid_argument&)
+    {
+        MessageBoxW(GetHWnd(), L"银行身份信息不完整，请由调用方传入角色和学生学号。", L"无法进入", MB_OK);
+        return;
+    }
+    activeButtons = bank->isAdministrator() ? AdminButtons : StudentButtons;
+    visibleAccounts.clear();
+    visibleTransactions.clear();
+    showingHistory = false;
+    hasUnsavedChanges = false;
+    firstVisibleRow = 0;
+    selectedAccountId.clear();
+    searchKeyword.clear();
+    visibleIndices.clear();
+    statusMessage = bank->isAdministrator()
+        ? L"管理员可开户、查看全部账户及流水；不代办存取款和转账。"
+        : L"仅显示本人账户；可存款、取款，并向有效银行账号转账。";
+    statusColor = Muted;
+    if (!loadBankData())
+    {
+        MessageBoxW(GetHWnd(),
+                    L"银行数据目录不可用，或账户/"
+                    L"流水文件缺失、格式错误。\n请确保两份文件配套，原文件未修改。",
+                    L"加载失败", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    refreshVisibleRows();
+    drawBankPage();
+    // 与主界面保持一致：RECT 定义按钮区域，PtInRect 判断鼠标是否落在区域内。
+    const RECT backR = {60, 90, 260, 120};
+    const RECT historyBackR = {60, 625, 220, 665};
+    const RECT previousR = {900, 575, 1010, 615};
+    const RECT nextR = {1030, 575, 1140, 615};
+    const RECT tableR = {60, 262, 1140, 262 + RowsPerPage * 38};
+    const RECT searchR = {680, 125, 820, 165};
+    const RECT allAccountsR = {840, 125, 980, 165};
+    const RECT allHistoryR = {1000, 125, 1140, 165};
+
     ExMessage msg;
-    bool running = true;
-    while (running && IsWindow(GetHWnd())) {
-        if (!peekmessage(&msg, EM_MOUSE | EM_KEY)) {
+    HWND window = GetHWnd();
+    while (IsWindow(window))
+    {
+        if (!peekmessage(&msg, EM_MOUSE | EM_KEY))
+        {
+            drawBankPage();
             Sleep(10);
             continue;
         }
-        handleMessage(msg, running);
-        if (running) draw();
+
+        if (msg.message == WM_KEYDOWN && msg.vkcode == VK_ESCAPE)
+        {
+            if (showingHistory)
+                showPage(false);
+            else if (canLeaveBank())
+                return;
+        }
+        else if (msg.message == WM_MOUSEWHEEL)
+        {
+            scrollPage(msg.wheel > 0 ? -RowsPerPage : RowsPerPage);
+        }
+        else if (msg.message == WM_LBUTTONDOWN)
+        {
+            POINT mouse = {msg.x, msg.y};
+            if (PtInRect(&backR, mouse) || (showingHistory && PtInRect(&historyBackR, mouse)))
+            {
+                if (showingHistory)
+                    showPage(false);
+                else if (canLeaveBank())
+                    return;
+            }
+            else if (PtInRect(&previousR, mouse))
+            {
+                scrollPage(-RowsPerPage);
+            }
+            else if (PtInRect(&nextR, mouse))
+            {
+                scrollPage(RowsPerPage);
+            }
+            else if (!showingHistory)
+            {
+                if (PtInRect(&tableR, mouse))
+                {
+                    int position = firstVisibleRow + (mouse.y - tableR.top) / 38;
+                    if (position < static_cast<int>(visibleIndices.size()))
+                        selectedAccountId = visibleAccounts[visibleIndices[position]]->accountId;
+                }
+                else if (PtInRect(&searchR, mouse))
+                {
+                    std::wstring input;
+                    if (inputText(L"请输入账号或学号关键字（留空显示全部）", input))
+                    {
+                        searchKeyword = input;
+                        selectedAccountId.clear();
+                        showPage(false);
+                    }
+                }
+                else if (PtInRect(&allAccountsR, mouse))
+                {
+                    searchKeyword.clear();
+                    selectedAccountId.clear();
+                    showPage(false);
+                }
+                else if (PtInRect(&allHistoryR, mouse))
+                {
+                    selectedAccountId.clear();
+                    showPage(true);
+                }
+                else
+                {
+                    // 按当前角色的按钮列表处理点击，位置与绘制保持一致。
+                    for (int i = 0; i < static_cast<int>(activeButtons.size()); ++i)
+                    {
+                        int left = 60 + i * 137;
+                        RECT actionR = {left, 625, left + 121, 665};
+                        if (PtInRect(&actionR, mouse))
+                        {
+                            handleAction(activeButtons[i].action);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        drawBankPage();
     }
-}
-
-void closeWindow(HANDLE lock) {
-    EndBatchDraw();
-    closegraph();
-    ReleaseMutex(lock);
-    CloseHandle(lock);
-}
-
-bool restoreWorkingDirectory(const std::filesystem::path& directory) {
-    std::error_code ec;
-    std::filesystem::current_path(directory, ec);
-    if (ec) {
-        MessageBoxW(nullptr, L"无法恢复原工作目录。", L"错误", MB_OK | MB_ICONERROR);
-        return false;
-    }
-    return true;
-}
-} // namespace
-
-bool gui_bank::run(const std::filesystem::path& dataDirectory) {
-    std::error_code ec;
-    std::filesystem::path previousDirectory = std::filesystem::current_path(ec);
-    if (ec) {
-        MessageBoxW(nullptr, L"无法读取当前工作目录。", L"启动失败", MB_OK | MB_ICONERROR);
-        return false;
-    }
-
-    HANDLE lock = acquireInstanceLock();
-    if (!lock) return false;
-
-    resetState();
-    if (!initializeDataDirectory(dataDirectory)) {
-        ReleaseMutex(lock);
-        CloseHandle(lock);
-        restoreWorkingDirectory(previousDirectory);
-        return false;
-    }
-
-    initializeWindow();
-    runEventLoop();
-    closeWindow(lock);
-
-    return restoreWorkingDirectory(previousDirectory);
 }

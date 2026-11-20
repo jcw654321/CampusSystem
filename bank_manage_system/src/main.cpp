@@ -1,155 +1,220 @@
+#define NOMINMAX
+#include <windows.h>
 #include "Banksystem.h"
 #include <filesystem>
 #include <iostream>
 #include <system_error>
-#include<windows.h>
+
 
 using namespace std;
 
-int main() {
+// 独立控制台测试入口。接入主系统时不编译本文件，避免出现两个 main。
+// 此入口直接输入整数“分”；GUI 允许输入元，并转换成分后调用相同后端。
+int main(int argc, char* argv[])
+{
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
-    Banksystem bankSystem;
+    // 独立测试入口没有统一登录页，显式提供测试身份；不用于主系统认证。
+    User testUser("银行控制台测试", "", "bank-console-test", "");
+    // 仅用于独立测试：main.exe 默认管理员；main.exe --student 学号 测试学生。
+    // 正式接入时必须由主系统提供已验证的角色和学号，不能信任用户自选参数。
+    BankRole role = BankRole::Administrator;
+    string studentId;
+    if (argc == 3 && string(argv[1]) == "--student")
+    {
+        role = BankRole::Student;
+        studentId = argv[2];
+        if (studentId.empty()) return 1;
+    }
+    else if (argc != 1)
+    {
+        cout << "用法：main.exe 或 main.exe --student 学号（仅测试身份）" << endl;
+        return 1;
+    }
+    Banksystem bankSystem(testUser, role, studentId);
+    cout << (bankSystem.isAdministrator() ? "管理员测试模式" : "学生测试模式") << endl;
     error_code ec;
     bool hasFile = filesystem::exists("accounts.txt", ec);
-    if (ec) {
+    if (ec)
+    {
         cout << "无法检查账户文件：" << ec.message() << endl;
         return 1;
     }
-    if (hasFile) {
-        if (!bankSystem.loadAccounts()) {
+    if (hasFile)
+    {
+        if (!bankSystem.loadAccounts())
+        {
             cout << "账户文件读取失败，程序退出，原文件未修改。" << endl;
             return 1;
         }
         cout << "已恢复账户。" << endl;
     }
     bool hasTransactions = filesystem::exists("transactions.txt", ec);
-    if (ec) {
+    if (ec)
+    {
         cout << "无法检查流水文件：" << ec.message() << endl;
         return 1;
     }
 
-    if (hasTransactions) {
-        if (!bankSystem.loadTransactions()) {
+    if (hasTransactions)
+    {
+        if (!bankSystem.loadTransactions())
+        {
             cout << "流水文件读取失败，程序退出。" << endl;
             return 1;
         }
         cout << "已恢复交易流水。" << endl;
     }
-    while(true){
-        cout<<"0.退出   1.查询交易流水  2.开储蓄账户    3.开信用账户    4.存款  5.取款  6.转账  7.查询余额  8.保存账户"<<endl;
+    // 菜单只负责输入输出，余额与流水由 bankSystem 管理。
+    while (true)
+    {
+        if (bankSystem.isAdministrator())
+            cout << "0.退出  1.查询流水  2.储蓄开户  3.信用开户  7.查询余额  8.保存" << endl;
+        else
+            cout << "0.退出  1.本人流水  4.存款  5.取款  6.转账  7.本人余额  8.保存" << endl;
         int choice;
-        cin>>choice;
-        if(choice == 0){
+        if (!(cin >> choice)) break;
+        if ((bankSystem.isAdministrator() && choice >= 4 && choice <= 6) ||
+            (!bankSystem.isAdministrator() && (choice == 2 || choice == 3)))
+        {
+            cout << "当前身份无权执行此操作" << endl;
+            continue;
+        }
+        if (choice == 0)
+        {
             break;
         }
-        else if(choice == 1){
-            cout<<"请输入账号：";
+        else if (choice == 1)
+        {
+            cout << "请输入账号：";
             string accountId;
-            cin>>accountId;
+            cin >> accountId;
             bankSystem.showTransactions(accountId);
         }
-        else if(choice == 2){
-            cout<<"请输入账号：";
+        else if (choice == 2)
+        {
+            cout << "请输入账号：";
             string accountId;
-            cin>>accountId;
-            cout<<"请输入学号：";
-            string studentId; 
-            cin>>studentId;
-            if(bankSystem.openSavingAccount(accountId, studentId)){
-                cout<<"开户成功"<<endl;
-            }
-            else{
-                cout<<"开户失败"<<endl;
-            }
-        }
-        else if(choice == 3){
-            cout<<"请输入账号：";
-            string accountId;
-            cin>>accountId;
-            cout<<"请输入学号：";
+            cin >> accountId;
+            cout << "请输入学号：";
             string studentId;
-            cin>>studentId;
-            cout<<"请输入信用额度：";
+            cin >> studentId;
+            if (bankSystem.openSavingAccount(accountId, studentId))
+            {
+                cout << "开户成功" << endl;
+            }
+            else
+            {
+                cout << "开户失败" << endl;
+            }
+        }
+        else if (choice == 3)
+        {
+            cout << "请输入账号：";
+            string accountId;
+            cin >> accountId;
+            cout << "请输入学号：";
+            string studentId;
+            cin >> studentId;
+            cout << "请输入信用额度：";
             int64_t creditLimit;
-            cin>>creditLimit;
-            if(bankSystem.openCreditAccount(accountId, studentId, creditLimit)){
-                cout<<"开户成功"<<endl;
+            cin >> creditLimit;
+            if (bankSystem.openCreditAccount(accountId, studentId, creditLimit))
+            {
+                cout << "开户成功" << endl;
             }
-            else{
-                cout<<"开户失败"<<endl;
+            else
+            {
+                cout << "开户失败" << endl;
             }
         }
-        else if(choice == 4){
-            cout<<"请输入账号：";
+        else if (choice == 4)
+        {
+            cout << "请输入账号：";
             string accountId;
-            cin>>accountId;
-            cout<<"请输入存款金额：";
+            cin >> accountId;
+            cout << "请输入存款金额：";
             int64_t amount;
-            cin>>amount;
-            if(bankSystem.deposit(accountId, amount)){
-                cout<<"存款成功"<<endl;
+            cin >> amount;
+            if (bankSystem.deposit(accountId, amount))
+            {
+                cout << "存款成功" << endl;
             }
-            else{
-                cout<<"存款失败"<<endl;
+            else
+            {
+                cout << "存款失败" << endl;
             }
         }
-        else if(choice == 5){
-            cout<<"请输入账号：";
+        else if (choice == 5)
+        {
+            cout << "请输入账号：";
             string accountId;
-            cin>>accountId;
-            cout<<"请输入取款金额：";
+            cin >> accountId;
+            cout << "请输入取款金额：";
             int64_t amount;
-            cin>>amount;
-            if(bankSystem.withdraw(accountId, amount)){
-                cout<<"取款成功"<<endl;
+            cin >> amount;
+            if (bankSystem.withdraw(accountId, amount))
+            {
+                cout << "取款成功" << endl;
             }
-            else{
-                cout<<"取款失败"<<endl;
+            else
+            {
+                cout << "取款失败" << endl;
             }
         }
-        else if(choice == 6){
-            cout<<"请输入转出账号：";
+        else if (choice == 6)
+        {
+            cout << "请输入转出账号：";
             string fromAccountId;
-            cin>>fromAccountId;
-            cout<<"请输入转入账号：";
+            cin >> fromAccountId;
+            cout << "请输入转入账号：";
             string toAccountId;
-            cin>>toAccountId;
-            cout<<"请输入转账金额：";
+            cin >> toAccountId;
+            cout << "请输入转账金额：";
             int64_t amount;
-            cin>>amount;
-            if(bankSystem.Transfer(fromAccountId, toAccountId, amount)){
-                cout<<"转账成功"<<endl;
+            cin >> amount;
+            if (bankSystem.Transfer(fromAccountId, toAccountId, amount))
+            {
+                cout << "转账成功" << endl;
             }
-            else{
-                cout<<"转账失败"<<endl;
+            else
+            {
+                cout << "转账失败" << endl;
             }
         }
-        else if(choice == 7){
-            cout<<"请输入账号：";
+        else if (choice == 7)
+        {
+            cout << "请输入账号：";
             string accountId;
-            cin>>accountId;
-            BankAccount* account = bankSystem.findAccount(accountId);
-            if(account != nullptr){
-                cout<<"余额为："<<account->getBalance()<<"分"<<endl;
+            cin >> accountId;
+            const BankAccount *account = bankSystem.findAccount(accountId);
+            if (account != nullptr)
+            {
+                cout << "余额为：" << account->getBalance() << "分" << endl;
             }
-            else{
-                cout<<"账号不存在"<<endl;
-            }
-        }
-        else if(choice == 8){
-            if(!bankSystem.saveAccounts()){
-                cout<<"账户信息保存失败,本次未保存流水"<<endl;
-            }
-            else if(!bankSystem.saveTransactions()){
-                cout<<"账户已保存，但流水保存失败"<<endl;
-            }
-            else{
-                cout<<"账户信息保存成功"<<endl;
+            else
+            {
+                cout << "账号不存在" << endl;
             }
         }
-        else{
-            cout<<"选项无效"<<endl;
+        else if (choice == 8)
+        {
+            if (!bankSystem.saveAccounts())
+            {
+                cout << "账户信息保存失败,本次未保存流水" << endl;
+            }
+            else if (!bankSystem.saveTransactions())
+            {
+                cout << "账户已保存，但流水保存失败" << endl;
+            }
+            else
+            {
+                cout << "账户信息保存成功" << endl;
+            }
+        }
+        else
+        {
+            cout << "选项无效" << endl;
         }
     }
 }

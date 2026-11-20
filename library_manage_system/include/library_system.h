@@ -29,6 +29,7 @@ bool adjustCopies(const string& bookId, int newTotal,string& reason); //调整�
 bool setBookStatus(const string& bookId,BookStatus newStatus,string& reason); //设置书籍状态为上架或者下架,下架前要求未归还书籍为0,reason用于记录失败原因
 int unreturnedBooksCount(const string& bookId) const;                       //统计该书未归还的书籍数量
 int availableCopies(const string& bookId) const;      //统计该书可借的书籍数量
+bool removeBook(const string& bookId,string& reason);//删除图书
 
 
 public://借阅管理相关成员函数
