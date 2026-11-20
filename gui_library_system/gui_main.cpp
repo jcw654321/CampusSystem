@@ -1,6 +1,4 @@
-#define NOMINMAX
 #include <graphics.h>
-#include <filesystem>
 #include <windows.h>
 #include <string>
 #include <vector>
@@ -14,7 +12,6 @@
 #include "student_gui.h"
 #include "student_manager_gui.h"
 #include "course_manager_gui.h"
-#include "gui_bank.h"
 
 // 定义枚举类page表示当前页面类型
 enum class Page
@@ -379,22 +376,6 @@ void drawAll()
 
 int main()
 {
-    // 程序固定输出到 gui_library_system/build，按可执行文件位置确定项目目录。
-    // 这样从 VS Code 或直接双击启动，都使用同一份用户、图书及银行数据。
-    wchar_t executablePath[32768] = {};
-    DWORD pathLength = GetModuleFileNameW(nullptr, executablePath, 32768);
-    if (pathLength == 0 || pathLength >= 32768)
-        return 1;
-    auto projectRoot = std::filesystem::path(executablePath).parent_path().parent_path().parent_path();
-    std::error_code directoryError;
-    std::filesystem::current_path(projectRoot / "library_manage_system", directoryError);
-    if (directoryError)
-    {
-        MessageBoxW(nullptr, L"找不到项目数据目录，请从项目构建目录启动。", L"启动失败", MB_OK | MB_ICONERROR);
-        return 1;
-    }
-    const auto bankDataDirectory = projectRoot / "bank_manage_system";
-
     initgraph(1200, 760);
     SetWindowTextW(GetHWnd(), L"校园综合管理系统");
     SetWindowPos(GetHWnd(), nullptr, (GetSystemMetrics(SM_CXSCREEN) - 1200) / 2, (GetSystemMetrics(SM_CYSCREEN) - 760) / 2 - 100, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
@@ -507,7 +488,6 @@ int main()
                 {
                     RECT libR = {455, 235, 755, 675};
                     RECT stuR = {110, 235, 410, 675};
-                    RECT bankR = {800, 235, 1100, 675};
 
                     if (PtInRect(&libR, p))
                     {
@@ -516,23 +496,6 @@ int main()
                         libTip.clear();
                         resetShown();
                         drawAll();
-                    }
-                    else if (PtInRect(&bankR, p))
-                    {
-                        // username 是已通过统一登录验证的用户 ID。
-                        const User* currentUser = userM.findUser(toString(username));
-                        if (currentUser == nullptr)
-                        {
-                            MessageBoxW(GetHWnd(), L"登录用户不存在，请重新登录。", L"提示", MB_OK);
-                            page = Page::Login;
-                        }
-                        else
-                        {
-                            runBankGui(*currentUser, bankDataDirectory);
-                            page = Page::Select;
-                        }
-                        if (IsWindow(hwnd))
-                            drawAll();
                     }
                     else if (PtInRect(&stuR, p))
                     {
