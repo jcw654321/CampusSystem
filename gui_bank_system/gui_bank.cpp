@@ -2,7 +2,9 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <limits>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <stdexcept>
@@ -756,10 +758,75 @@ bool loadBankData()
     return bank->loadTransactions();
 }
 
+std::string findStudentIdByUserId(const std::string &userId,
+                                  const std::filesystem::path &bankDataDirectory)
+{
+    if (userId.empty())
+    {
+        return "";
+    }
+
+    std::error_code ec;
+    std::filesystem::path bankDir =
+        std::filesystem::absolute(bankDataDirectory, ec);
+    if (ec)
+    {
+        bankDir = bankDataDirectory;
+    }
+
+    std::vector<std::filesystem::path> candidates;
+    candidates.push_back(bankDir.parent_path() / "student_manage_system" /
+                         "data" / "student_data" / "student_data.csv");
+    candidates.push_back(bankDir.parent_path().parent_path() /
+                         "student_manage_system" / "data" / "student_data" /
+                         "student_data.csv");
+    candidates.push_back("../student_manage_system/data/student_data/student_data.csv");
+    candidates.push_back("student_manage_system/data/student_data/student_data.csv");
+
+    for (const auto &path : candidates)
+    {
+        std::ifstream in(path);
+        if (!in.is_open())
+        {
+            continue;
+        }
+
+        std::string line;
+        std::getline(in, line); // 表头
+
+        while (std::getline(in, line))
+        {
+            if (!line.empty() && line.back() == '\r')
+            {
+                line.pop_back();
+            }
+            if (line.empty())
+            {
+                continue;
+            }
+
+            std::vector<std::string> fields;
+            std::stringstream ss(line);
+            std::string field;
+            while (std::getline(ss, field, ','))
+            {
+                fields.push_back(field);
+            }
+
+            if (fields.size() >= 7 && fields[0] == userId)
+            {
+                return fields[6];
+            }
+        }
+    }
+
+    return "";
+}
+
 } // namespace
 
-void runBankGui(const User& currentUser, BankRole role, const std::string& studentId,
-                const std::filesystem::path& dataDirectory)
+static void runBankGuiCore(const User& currentUser, BankRole role, const std::string& studentId,
+                           const std::filesystem::path& dataDirectory)
 {
     // 每次进入重新加载数据；窗口和双缓冲仍由主系统管理。
     try
@@ -892,4 +959,30 @@ void runBankGui(const User& currentUser, BankRole role, const std::string& stude
         }
         drawBankPage();
     }
+}
+
+void runBankGui(const User& currentUser, BankRole role,
+                const std::filesystem::path& dataDirectory)
+{
+    std::string studentId;
+    if (role == BankRole::Student)
+    {
+        studentId = findStudentIdByUserId(currentUser.getUserid(), dataDirectory);
+        if (studentId.empty())
+        {
+            MessageBoxW(GetHWnd(),
+                        L"没有找到该用户对应的学生档案，无法进入银行。",
+                        L"无法进入", MB_OK);
+            return;
+        }
+    }
+
+    runBankGuiCore(currentUser, role, studentId, dataDirectory);
+}
+
+void runBankGui(const User& currentUser, BankRole role,
+                const std::string& studentId,
+                const std::filesystem::path& dataDirectory)
+{
+    runBankGuiCore(currentUser, role, studentId, dataDirectory);
 }
