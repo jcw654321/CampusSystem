@@ -1,38 +1,171 @@
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <windows.h>
 #include "student_manager.h"
+#include "subject_manager.h"
 
 using namespace std;
 
+struct InputClosed {};
+
+//用来校验输入
 string input(const string& prompt) {
     cout << prompt;
     string value;
-    getline(cin, value);
+    if (!getline(cin, value))
+        throw InputClosed{};
     return value;
 }
 
+//查找学生并返回学生类型指针
 Student* findStudent(vector<Student>& students, const string& id) {
     for (Student& student : students) {
         if (student.getStudentId() == id) {
             return &student;
         }
     }
+    cout << "没有找到该学生。\n";
     return nullptr;
 }
 
-void showStudent(const StudentManager& manager, const Student& student) {
-    cout << "性别: " << student.getSex() << endl;
-    manager.printStudentInfo(student);
+
+//用来判断输入的学号或课程iD是否存在
+Student* selectStudentSubject(vector<Student>& students, SubjectManager& subjectManager,const string& subjectPrompt,string& subjectId) {
+    Student* student = findStudent(students, input("请输入学号: "));
+    if (!student)
+        return nullptr;
+
+    subjectId = input(subjectPrompt);
+    if (!subjectManager.hasSubject(*student, subjectId)) {
+        cout << "该学生未选修此课程。\n";
+        return nullptr;
+    }
+    return student;
 }
 
-int main() {
+//
+void saveStudentSubjects(Student& student, const Student& updatedStudent, const SubjectManager& subjectManager,const string& successMessage,const string& failureMessage) {
+    if (!subjectManager.saveSubjectsToFile(updatedStudent)) {
+        cout << failureMessage << '\n';
+        return;
+    }
+
+    student = updatedStudent;
+    cout << successMessage << '\n';
+}
+
+void managesubjects(vector<Student>& students,
+                   SubjectManager& subjectManager) {
+    while (true) {
+        cout << "\n===== 课程管理 =====\n"
+             << "1. 查看学生课程\n"
+             << "2. 添加课程\n"
+             << "3. 删除课程\n"
+             << "4. 录入/修改成绩\n"
+             << "0. 返回主菜单\n";
+        const string choice = input("请选择: ");
+
+        switch (choice.size() == 1 ? choice[0] : '\0') {
+        //1. 查看学生课程
+        case '1': {
+            const string studentId = input("请输入学号: ");
+            Student* student = findStudent(students, studentId);
+            if (student)
+                subjectManager.showStudentsubjects(*student);
+            break;
+        }
+        //2. 添加课程
+        case '2': {
+            const string studentId = input("请输入学号: ");
+            Student* student = findStudent(students, studentId);
+            if (!student)
+                break;
+
+            const string subjectName = input("课程名称: ");
+            const string subjectId = input("课程ID: ");
+            const string teacherName = input("教师姓名: ");
+            if (subjectName.empty() || subjectId.empty() || teacherName.empty()) {
+                cout << "课程名称、课程ID和教师姓名不能为空。\n";
+                break;
+            }
+
+            if (subjectManager.hasSubject(*student, subjectId)) {
+                cout << "该学生已存在此课程ID。\n";
+                break;
+            }
+
+            const string scoreText = input("成绩 (0-100，留空表示未录入): ");
+            float score = -1.0f;
+            if (!scoreText.empty() &&
+                !SubjectManager::parseScore(scoreText, score))
+            {
+                cout << "成绩格式无效，必须是 0 到 100 之间的数字。\n";
+                break;
+            }
+
+            Student updatedStudent = *student;
+            subjectManager.addSubject(updatedStudent,subject(subjectName, subjectId, teacherName, score));
+            saveStudentSubjects(*student, updatedStudent, subjectManager,
+                                "课程添加并保存完成。",
+                                "保存课程失败，未更改学生课程。");
+            break;
+        }
+        //3. 删除课程
+        case '3': {
+            string subjectId;
+            Student* student = selectStudentSubject(
+                students, subjectManager, "请输入要删除的课程ID: ", subjectId);
+            if (!student)
+                break;
+
+            Student updatedStudent = *student;
+            subjectManager.removeSubject(updatedStudent, subjectId);
+            saveStudentSubjects(*student, updatedStudent, subjectManager,
+                                "课程删除并保存完成。",
+                                "保存课程失败，未更改学生课程。");
+            break;
+        }
+        //4. 录入/修改成绩
+        case '4': {
+            string subjectId;
+            Student* student = selectStudentSubject(
+                students, subjectManager, "请输入课程ID: ", subjectId);
+            if (!student)
+                break;
+
+            const string scoreText = input("请输入成绩 (0-100): ");
+            float score = 0.0f;
+            if (!SubjectManager::parseScore(scoreText, score)) {
+                cout << "成绩格式无效，必须是 0 到 100 之间的数字。\n";
+                break;
+            }
+
+            Student updatedStudent = *student;
+            subjectManager.updateScore(updatedStudent, subjectId, score);
+            saveStudentSubjects(*student, updatedStudent, subjectManager,
+                                "成绩修改并保存完成。",
+                                "保存成绩失败，未更改学生课程。");
+            break;
+        }
+        case '0':
+            return;
+        default:
+            cout << "无效选项。\n";
+            break;
+        }
+    }
+}
+
+int runApplication() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 
     StudentManager manager("管理员", "admin@example.com", "admin", "123456");
+    SubjectManager subjectManager("管理员", "admin@example.com", "admin", "123456");
     vector<Student> students = manager.loadStudentsFromFile();
+    subjectManager.loadSubjectsFromfile(students);
 
     while (true) {
         cout << "\n===== 学生管理系统 =====\n"
@@ -41,84 +174,116 @@ int main() {
              << "3. 新增学生\n"
              << "4. 修改学生\n"
              << "5. 删除学生\n"
+             << "6. 按平均成绩排名\n"
+             << "7. 按课程筛选学生\n"
+             << "8. 课程管理\n"
              << "0. 退出\n";
 
-        string choice = input("请选择: ");
+        const string choice = input("请选择: ");
 
-        if (choice == "1") {
-            for (const Student& s : students) {
+        switch (choice.size() == 1 ? choice[0] : '\0') {
+        //1. 查看所有学生
+        case '1':
+            if (students.empty())
+                cout << "当前没有学生。\n";
+            for (const Student& student : students) {
                 cout << "\n----------------\n";
-                showStudent(manager, s);
+                manager.printStudentInfo(student);
             }
-        } else if (choice == "2") {
-            Student* s = findStudent(students, input("请输入学号: "));
-            if (s) showStudent(manager, *s);
-            else cout << "没有找到该学生。\n";
-        } else if (choice == "3") {
-            string userId = input("用户ID: ");
-            string name = input("姓名: ");
-            string sex = input("性别: ");
-            string email = input("邮箱: ");
-            string password = input("密码: ");
-            string major = input("专业: ");
-            string id = input("学号: ");
-            string className = input("班级: ");
+            break;
+        //2. 查询学生
+        case '2': {
+            const string id = input("请输入学号: ");
+            Student* student = findStudent(students, id);
+            if (student)
+                manager.printStudentInfo(*student);
+            break;
+        }
+        //3. 新增学生
+        case '3': {
+            const string userId = input("用户ID: ");
+            const string name = input("姓名: ");
+            const string sex = input("性别: ");
+            const string email = input("邮箱: ");
+            const string password = input("密码: ");
+            const string major = input("专业: ");
+            const string id = input("学号: ");
+            const string className = input("班级: ");
 
-            if (id.empty() || findStudent(students, id)) {
-                cout << "学号为空或已存在，未新增。\n";
-                continue;
+            const bool studentIdExists = any_of(
+                students.begin(), students.end(),
+                [&id](const Student& student) {
+                    return student.getStudentId() == id;
+                });
+            if (studentIdExists) {
+                cout << "学号已存在，未新增。\n";
+                break;
             }
 
-            Student s(name, email, userId, password, major, id, className);
-            s.setSex(sex);
-            if (manager.addStudent(students, s))
+            Student student(name, email, userId, password, major, id, className, sex);
+            if (manager.addStudent(students, student))
                 cout << "新增并保存完成。\n";
             else
                 cout << "新增完成，但保存文件失败。\n";
-        } else if (choice == "4") {
-            Student* s = findStudent(students, input("请输入要修改的学号: "));
-            if (!s) {
-                cout << "没有找到该学生。\n";
-                continue;
-            }
+            break;
+        }
+        case '4': {
+        //4. 修改学生
+            const string id = input("请输入要修改的学号: ");
 
-            Student updatedStudent = *s;
-            string value;
-            value = input("姓名 [" + updatedStudent.getName() + "]: ");
-            if (!value.empty()) updatedStudent.setName(value);
-
-            value = input("邮箱 [" + updatedStudent.getEmail() + "]: ");
-            if (!value.empty()) updatedStudent.setEmail(value);
-
-            value = input("专业 [" + updatedStudent.getMajor() + "]: ");
-            if (!value.empty()) updatedStudent.setMajor(value);
-
-            value = input("班级 [" + updatedStudent.getClassName() + "]: ");
-            if (!value.empty()) updatedStudent.setClassName(value);
-
-            value = input("性别 [" + updatedStudent.getSex() + "]: ");
-            if (!value.empty()) updatedStudent.setSex(value);
-
+            if (findStudent(students, id) == nullptr)
+                break;
+            const string userId = input("用户ID: ");
+            const string name = input("姓名: ");
+            const string sex = input("性别: ");
+            const string email = input("邮箱: ");
+            const string password = input("密码: ");
+            const string major = input("专业: ");
+            const string className = input("班级: ");
+             
+            Student updatedStudent(name, email, userId, password, major, id, className, sex);
             if (manager.updateStudent(students, updatedStudent))
                 cout << "修改并保存完成。\n";
             else
                 cout << "修改完成，但保存文件失败。\n";
-        } else if (choice == "5") {
-            string id = input("请输入要删除的学号: ");
-            if (!findStudent(students, id)) {
-                cout << "没有找到该学生。\n";
-                continue;
-            }
+            break;
+        }
+        //5. 删除学生
+        case '5': {
+            const string id = input("请输入要删除的学号: ");
+            if (!findStudent(students, id))
+                break;
 
             if (manager.removeStudent(students, id))
                 cout << "删除并保存完成。\n";
             else
                 cout << "删除完成，但保存文件失败。\n";
-        } else if (choice == "0") {
+            break;
+        }
+        //6. 按平均成绩排名
+        case '6':
+            subjectManager.showScoreRanking(students);
+            break;
+        case '7':
+        //7. 按课程筛选学生
+            subjectManager.filterStudentsBysubject(
+                students, input("请输入课程ID: "));
+            break;
+        case '8':
+        //8. 课程管理
+            managesubjects(students, subjectManager);
+            break;
+        case '0':
+        //0. 退出
             cout << "已退出。\n";
             return 0;
-        } else {
+        default:
             cout << "无效选项。\n";
+            break;
         }
     }
+}
+
+int main() {
+     runApplication();
 }

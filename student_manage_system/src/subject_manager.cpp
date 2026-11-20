@@ -3,6 +3,9 @@
 #include<iostream>
 #include<algorithm>
 #include<fstream>
+#include <iomanip>
+#include <iostream>
+#include<stdexcept>
 using namespace std;
 
 const string student_filepath = ".\\data\\student_data\\student_data.csv";
@@ -25,23 +28,136 @@ void SubjectManager::loadSubjectsFromfile(vector<Student>&students)
 
         while (getline(file, line))
         {
-            if (!line.empty() && line.back() == '\r')
+            if (!line.empty() && line.back() == '\r')//删掉最后的/r
                 line.pop_back();
 
             if (line.empty())
                 continue;
 
-            if (!parseCsvLine(line, fields) || fields.size() != 4)
+            if (!parseCsvLine(line, fields) || fields.size() != 4 ||
+                fields[1].empty())   //如果此行解析失败或缺少某个要素或没有课程名跳过
                 continue;
 
-                subject s(
-                    fields[0],
-                    fields[1],
-                    fields[2],
-                    stof(fields[3])
-                );
+                float score = 0.0;
+                if(!parseScore(fields[3],score))
 
-                addSubject(student, s);
+                addSubject(student, subject(fields[0],fields[1],fields[2],score));
+        
+        }
+    }
+}
+
+bool SubjectManager::saveSubjectsToFile(const Student& student) const
+{
+    const string filepath = ".\\data\\subject_data\\" +
+                            student.getStudentId() + ".csv";
+
+    ofstream file(filepath, ios::binary | ios::trunc);
+    if (!file)
+        return false;
+
+    file << "\xEF\xBB\xBF" << "课程名称,课程ID,教师姓名,课程成绩\n";
+    for (const subject& subject : student.getSubjects())
+    {
+        file << escapeCsvField(subject.getName()) << ','
+             << escapeCsvField(subject.getSubjectId()) << ','
+             << escapeCsvField(subject.getTeacherName()) << ','
+             << subject.getScore() << '\n';
+    }
+
+    file.flush();
+    return  true;
+}
+
+bool SubjectManager::hasSubject(const Student& student, const string& subjectId) const
+{
+    const vector<subject>& subjects = student.getSubjects();
+    return any_of(subjects.begin(), subjects.end(),
+                  [&subjectId](const subject& current)
+                  {
+                      return current.getSubjectId() == subjectId;
+                  });
+}
+
+
+void SubjectManager::showStudentsubjects(const Student& student) const
+{
+    cout << "学生: " << student.getName()
+         << " (" << student.getStudentId() << ")\n";
+    if (student.getSubjects().empty())
+    {
+        cout << "该学生暂无课程。\n";
+        return;
+    }
+
+    for (const subject& subject : student.getSubjects())
+    {
+        cout << "课程名称: " << subject.getName()
+             << ", 课程ID: " << subject.getSubjectId()
+             << ", 教师: " << subject.getTeacherName()
+             << ", 成绩: ";
+        if (subject.getScore() >= 0.0f)
+            cout << subject.getScore();
+        else
+            cout << "未录入";
+        cout << '\n';
+    }
+}
+
+bool SubjectManager::parseScore(const string& text, float& score)
+{
+        size_t parsedLength = 0;
+        score = stof(text, &parsedLength); //把成绩由string转成float
+        return parsedLength == text.size()&&score >= 0.0f && score <= 100.0f;    //必须没有多余的字符且不是非法float且在0-100
+}
+
+void SubjectManager::showScoreRanking(const vector<Student>& students) const
+{
+    const vector<StudentAverage> ranked = rankByAverageScore(students);
+    if (ranked.empty())
+    {
+        cout << "目前没有可参与排名的成绩。\n";
+        return;
+    }
+
+    cout << fixed << setprecision(2);
+    for (size_t i = 0; i < ranked.size(); ++i)
+    {
+        const Student& student = *ranked[i].student;
+        cout << i + 1 << ". " << student.getName()
+             << " (学号: " << student.getStudentId()
+             << "), 平均成绩: " << ranked[i].average << '\n';
+    }
+}
+
+void SubjectManager::filterStudentsBysubject(
+    const vector<Student>& students, const string& subjectId) const
+{
+    const vector<const Student*> matched = findBysubject(students, subjectId);
+    if (matched.empty())
+    {
+        cout << "没有学生选修该课程。\n";
+        return;
+    }
+
+    for (const Student* student : matched)
+    {
+        for (const subject& subject : student->getSubjects())
+        {
+            if (subject.getSubjectId() == subjectId)
+            {
+                cout << "学生: " << student->getName()
+                     << " (学号: " << student->getStudentId() << ")"
+                     << ", 课程: " << subject.getName()
+                     << ", 教师: " << subject.getTeacherName()
+                     << ", 成绩: ";
+                if (subject.getScore() >= 0.0f)
+                    cout << subject.getScore();
+                else
+                    cout << "未录入";
+                cout << '\n';
+                break;
+            }
         }
     }
 }
@@ -55,11 +171,11 @@ vector<StudentAverage> SubjectManager::rankByAverageScore(const vector<Student>&
         double total = 0;
         int count = 0;
 
-        for (const subject& course : student.getSubjects())
+        for (const subject& subject : student.getSubjects())
         {
-            if (course.getScore() >= 0)
+            if (subject.getScore() >= 0)
             {
-                total += course.getScore();
+                total += subject.getScore();
                 ++count;
             }
         }
@@ -80,18 +196,18 @@ vector<StudentAverage> SubjectManager::rankByAverageScore(const vector<Student>&
     return ranked;
 }
 
-vector<const Student*> SubjectManager::findByCourse(const vector<Student>& students,const string& courseId) const
+vector<const Student*> SubjectManager::findBysubject(const vector<Student>& students,const string& subjectId) const
 {
     vector<const Student*> matched;
 
     for (const Student& student : students)
     {
-        const vector<subject>& courses = student.getSubjects();
+        const vector<subject>& subjects = student.getSubjects();
         bool selected = any_of(
-            courses.begin(), courses.end(),
-            [&courseId](const subject& course)
+            subjects.begin(), subjects.end(),
+            [&subjectId](const subject& subject)
             {
-                return course.getSubjectId() == courseId;
+                return subject.getSubjectId() == subjectId;
             });
 
         if (selected)
@@ -107,9 +223,13 @@ void SubjectManager::addSubject(Student& student, const subject& s) {
 
 void SubjectManager::removeSubject(Student& student, const string& subjectId) {
     auto& subjects = student.subjects;
-    subjects.erase(remove_if(subjects.begin(), subjects.end(),
-                             [&subjectId](const subject& s) { return s.getSubjectId() == subjectId; }),
-                   subjects.end());
+    for (auto it = subjects.begin(); it != subjects.end(); ) {
+        if (it->getSubjectId() == subjectId) {
+            it = subjects.erase(it); // erase 返回下一个有效迭代器
+        } else {
+            ++it;
+        }
+    }
 }
 
 void SubjectManager::updateScore(Student& student, const string& subjectId, float score) {

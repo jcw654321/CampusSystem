@@ -1,5 +1,6 @@
 #include "fileoperate.h"
 
+//用于解析文件中的一行(如果有两个""则减去一个)
 bool parseCsvLine(const string& line, vector<string>& fields)
 {
     fields.clear();
@@ -32,6 +33,7 @@ bool parseCsvLine(const string& line, vector<string>& fields)
     return !inQuotes;
 }
 
+//写入时如果有"则再加一个"
 string escapeCsvField(const string& value)
 {
     if (value.find_first_of(",\"\r\n") == string::npos)

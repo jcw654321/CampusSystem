@@ -60,6 +60,18 @@
             "environment": [],
             "console": "integratedTerminal",
             "preLaunchTask": "cl: build student_gui (MSVC x64)"
+        },
+        {
+            "name": "C/C++ MSVC: 综合子系统 GUI (EasyX)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}\\gui_isubsystem\\build\\gui_isubsystem.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": "cl: build gui_isubsystem (MSVC x64)"
         }
     ]
 }

@@ -27,8 +27,7 @@ vector<Student> StudentManager::loadStudentsFromFile()
            continue;
 
         Student student(fields[1], fields[3], fields[0], fields[4],
-                        fields[5], fields[6], fields[7]);
-        student.setSex(fields[2]);
+                        fields[5], fields[6], fields[7], fields[2]);
         loadedStudents.push_back(student);
     }
 
@@ -114,10 +113,11 @@ const Student* StudentManager::findStudentByUserid(
 }
 
 void StudentManager::printStudentInfo(const Student& student) const {
-    cout << "Name: " << student.getName() << endl;
-    cout << "Email: " << student.getEmail() << endl;
-    cout << "User ID: " << student.getUserid() << endl;
-    cout << "Major: " << student.getMajor() << endl;
-    cout << "Student ID: " << student.getStudentId() << endl;
-    cout << "Class Name: " << student.getClassName() << endl;
+    cout << "姓名: " << student.getName() << endl;
+    cout << "性别: " << student.getSex() << endl;
+    cout << "邮箱: " << student.getEmail() << endl;
+    cout << "用户id: " << student.getUserid() << endl;
+    cout << "专业: " << student.getMajor() << endl;
+    cout << "学号: " << student.getStudentId() << endl;
+    cout << "班级名:" << student.getClassName() << endl;
 }

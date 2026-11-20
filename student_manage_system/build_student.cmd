@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 if not exist build mkdir build
 
-call "D:\c++\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+call "D:\Visual Studio\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] failed to run vcvars64.bat
     exit /b 1
