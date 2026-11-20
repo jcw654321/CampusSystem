@@ -149,7 +149,7 @@ bool hasUnsavedChanges = false; // 保存失败时阻止继续交易，允许重
 int firstVisibleRow = 0;        // 当前页第一条记录在 visibleIndices 中的位置
 std::string selectedAccountId;
 std::wstring searchKeyword;
-std::wstring statusMessage = L"请选择账户办理业务；金额单位为元。";
+std::wstring statusMessage;
 COLORREF statusColor = Muted;
 // 保存原容器的下标；搜索和分页只改变显示顺序，不移动实际账户或流水。
 std::vector<size_t> visibleIndices;
@@ -418,20 +418,6 @@ void drawRows()
     }
 }
 
-void drawPagination()
-{
-    int pageCount =
-        std::max(1, (static_cast<int>(visibleIndices.size()) + RowsPerPage - 1) / RowsPerPage);
-    std::wstring pageText = L"共 " + std::to_wstring(visibleIndices.size()) + L" 条    第 " +
-                            std::to_wstring(firstVisibleRow / RowsPerPage + 1) + L" / " +
-                            std::to_wstring(pageCount) + L" 页";
-    drawText(60, 582, pageText, 16, Muted);
-
-    drawButton(900, 575, 110, L"上一页", firstVisibleRow > 0);
-    drawButton(1030, 575, 110, L"下一页",
-               firstVisibleRow + RowsPerPage < static_cast<int>(visibleIndices.size()));
-}
-
 void drawActions()
 {
     if (showingHistory)
@@ -456,25 +442,13 @@ void drawBankPage()
     setfillcolor(Blue);
     solidrectangle(0, 0, 1200, 72);
     drawText(40, 22, L"华南理工大学  校园综合管理系统", 26, WHITE);
-    drawText(700, 27, L"当前用户：" + toWide(bank->getName())
-             + L"（" + toWide(bank->getUserid()) + L"）", 16, WHITE);
     drawText(60, 92, showingHistory ? L"< 返回账户" : L"< 退出银行管理", 18, Blue);
     std::wstring title = L"我的银行";
-    std::wstring subtitle = L"学生 · 学号：" + toWide(bank->getCurrentStudentId());
     if (bank->isAdministrator())
-    {
         title = L"银行管理";
-        subtitle = L"银行管理员";
-    }
     if (showingHistory)
-    {
         title = L"交易流水";
-        subtitle = bank->isAdministrator() ? L"全部账户" : L"我的账户";
-        if (!selectedAccountId.empty())
-            subtitle = L"账号：" + toWide(selectedAccountId);
-    }
     drawText(60, 130, title, 28);
-    drawText(265, 141, subtitle, 17, Muted);
     drawText(60, 180,
              (bank->isAdministrator() ? L"账户总数  " : L"我的账户数  ") + std::to_wstring(visibleAccounts.size()) + L"    交易笔数  " +
                  std::to_wstring(visibleTransactions.size()) +
@@ -497,9 +471,12 @@ void drawBankPage()
             emptyMessage = L"暂无交易流水";
         drawText(400, 390, emptyMessage, 20, Muted);
     }
-    drawPagination();
+    drawButton(900, 575, 110, L"上一页", firstVisibleRow > 0);
+    drawButton(1030, 575, 110, L"下一页",
+               firstVisibleRow + RowsPerPage < static_cast<int>(visibleIndices.size()));
     drawActions();
-    drawText(60, 678, statusMessage, 16, statusColor);
+    if (!statusMessage.empty())
+        drawText(60, 678, statusMessage, 16, statusColor);
     setlinecolor(RGB(205, 212, 224));
     line(0, 706, 1200, 706);
     drawText(405, 724, L"2026 华南理工大学 · 校园综合管理系统", 16, RGB(120, 128, 140));
@@ -860,9 +837,7 @@ void runBankGui(const User& currentUser, BankRole role,
     selectedAccountId.clear();
     searchKeyword.clear();
     visibleIndices.clear();
-    statusMessage = bank->isAdministrator()
-        ? L"管理员可开户、查看全部账户及流水；不代办存取款和转账。"
-        : L"仅显示本人账户；可存款、取款，并向有效银行账号转账。";
+    statusMessage.clear();
     statusColor = Muted;
     if (!loadBankData())
     {
