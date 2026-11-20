@@ -1,6 +1,8 @@
 #pragma once
+#include "user.h"
+#include <filesystem>
 
-// 主系统调用此函数进入银行页面；用户点击返回后函数结束。
-// 调用前：创建 1200×760 的 EasyX 窗口，开启批量绘图，设置银行数据工作目录。
-// 本函数不创建或关闭窗口；accounts.txt、transactions.txt 从当前工作目录读写。
-void runBankGui();
+// 调用前由主系统创建 1200×760 EasyX 窗口并开启批量绘图。
+// 传入已经登录的用户及银行数据目录；返回时不关闭窗口、不改变工作目录。
+// 当前不区分银行管理员和学生权限。
+void runBankGui(const User& currentUser, const std::filesystem::path& dataDirectory);

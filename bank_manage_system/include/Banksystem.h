@@ -2,15 +2,24 @@
 
 #include "BankAccount.h"
 #include "Transaction.h"
+#include "user.h"
+#include <filesystem>
 #include <memory>
 #include <vector>
 
 // 银行业务入口：管理全部账户和流水，不负责登录、绘图或读取用户输入。
 // 业务函数修改内存，调用方另行调用保存函数写入文件。
 // 返回 bool 的操作用 true 表示成功、false 表示失败；所有金额单位均为“分”。
-class Banksystem
+class Banksystem : public User
 {
   public:
+    // 继承主系统已验证的用户身份。学号仍由账户保存，不与用户 ID 混用。
+    explicit Banksystem(const User& currentUser,
+                        const std::filesystem::path& dataDirectory = ".")
+        : User(currentUser), dataDirectory(std::filesystem::absolute(dataDirectory)) {}
+
+    const std::filesystem::path& getDataDirectory() const { return dataDirectory; }
+
     // unique_ptr 让容器统一管理账户生命周期，并保留储蓄/信用账户的实际类型。
     std::vector<std::unique_ptr<BankAccount>> accounts;
     std::vector<Transaction> transactions;
@@ -30,7 +39,7 @@ class Banksystem
                   std::int64_t amount);
     void showTransactions(const std::string &accountId); // 向控制台输出
 
-    // 3. 文件读写，实现在 BanksystemFile.cpp；路径相对于当前工作目录。
+    // 3. 文件读写，实现在 BanksystemFile.cpp；使用构造时确定的数据目录，不切换其他子系统的工作目录。
     // 加载账户要求 accounts 为空；加载流水前必须先加载账户。
     bool loadAccounts();
     bool loadTransactions();
@@ -38,4 +47,6 @@ class Banksystem
     bool saveTransactions() const;
     // 解析文件中的一行账户数据；格式或数值错误时返回 nullptr。
     std::unique_ptr<BankAccount> parseAccountLine(const std::string &line) const;
+  private:
+    std::filesystem::path dataDirectory;
 };

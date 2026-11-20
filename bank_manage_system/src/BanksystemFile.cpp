@@ -16,7 +16,7 @@ using namespace std;
 // 两个文件分开保存，并不构成原子事务；调用方要分别检查返回值。
 bool Banksystem::saveAccounts() const
 {
-    ofstream out("accounts.txt");
+    ofstream out(dataDirectory / "accounts.txt");
     if (!out)
     {
         return false;
@@ -76,7 +76,7 @@ bool Banksystem::loadAccounts()
     {
         return false;
     }
-    ifstream in("accounts.txt");
+    ifstream in(dataDirectory / "accounts.txt");
     if (!in)
     {
         return false;
@@ -110,7 +110,7 @@ bool Banksystem::loadAccounts()
 
 bool Banksystem::saveTransactions() const
 {
-    ofstream out("transactions.txt");
+    ofstream out(dataDirectory / "transactions.txt");
     if (!out)
     {
         return false;
@@ -126,7 +126,7 @@ bool Banksystem::saveTransactions() const
 
 bool Banksystem::loadTransactions()
 {
-    ifstream in("transactions.txt");
+    ifstream in(dataDirectory / "transactions.txt");
     if (!in)
     {
         return false;

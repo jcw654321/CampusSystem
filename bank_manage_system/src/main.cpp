@@ -1,8 +1,10 @@
+#define NOMINMAX
+#include <windows.h>
 #include "Banksystem.h"
 #include <filesystem>
 #include <iostream>
 #include <system_error>
-#include <windows.h>
+
 
 using namespace std;
 
@@ -12,7 +14,9 @@ int main()
 {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
-    Banksystem bankSystem;
+    // 独立测试入口没有统一登录页，显式提供测试身份；不用于主系统认证。
+    User testUser("银行控制台测试", "", "bank-console-test", "");
+    Banksystem bankSystem(testUser);
     error_code ec;
     bool hasFile = filesystem::exists("accounts.txt", ec);
     if (ec)

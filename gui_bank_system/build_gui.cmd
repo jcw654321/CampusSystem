@@ -28,8 +28,10 @@ if not exist "%BANK_EASYX_INCLUDE%\graphics.h" (
 
 cl /nologo /EHsc /std:c++17 /utf-8 /W4 /MDd /D_UNICODE /DUNICODE ^
     /I"..\bank_manage_system\include" ^
+    /I"..\include" ^
     /I"%BANK_EASYX_INCLUDE%" ^
     gui_bank.cpp ^
+    ..\src\user.cpp ^
     ..\bank_manage_system\src\BankAccount.cpp ^
     ..\bank_manage_system\src\SavingAccount.cpp ^
     ..\bank_manage_system\src\CreditAccount.cpp ^
@@ -43,6 +45,7 @@ if errorlevel 1 (
 
 lib /nologo /OUT:"build\gui_bank.lib" ^
     "build\gui_bank.obj" ^
+    "build\user.obj" ^
     "build\BankAccount.obj" ^
     "build\SavingAccount.obj" ^
     "build\CreditAccount.obj" ^
