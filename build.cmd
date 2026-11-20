@@ -17,11 +17,19 @@ if not exist "%SRC%" (
 
 pushd "%SRC%"
 
-REM MSVC needs INCLUDE/LIB from vcvars64.bat, which a plain shell lacks
-call "D:\c++\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+REM Prefer the installed Visual Studio; retain the original custom-path fallback.
+set "BANK_VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+set "BANK_VSROOT="
+if exist "%BANK_VSWHERE%" (
+    for /f "usebackq tokens=*" %%i in (`"%BANK_VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "BANK_VSROOT=%%i"
+)
+if defined BANK_VSROOT (
+    call "%BANK_VSROOT%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+) else (
+    call "D:\c++\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+)
 if errorlevel 1 (
-    echo [ERROR] failed to run vcvars64.bat
-    popd
+    echo [ERROR] MSVC x64 build environment is unavailable.
     exit /b 1
 )
 
@@ -31,6 +39,9 @@ set "RSP=%OUT%\sources.rsp"
 if exist "%RSP%" del "%RSP%" >nul 2>&1
 
 for /r . %%f in (*.cpp) do echo "%%f">>"%RSP%"
+
+REM The bank console now depends on the common User implementation.
+if exist "include\Banksystem.h" echo "%~dp0src\user.cpp">>"%RSP%"
 
 if not exist "%RSP%" (
     echo [ERROR] no .cpp file found in: %CD%
@@ -42,7 +53,7 @@ set /a N=0
 for /f "usebackq delims=" %%l in ("%RSP%") do set /a N+=1
 echo Building %N% source file(s) in %CD% ...
 
-cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /I. /Iinclude /Fo"%OUT%\\" /Fd"%OUT%\vc140.pdb" /Fe"%OUT%\main.exe" @"%RSP%"
+cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /I. /Iinclude /I"%~dp0include" /Fo"%OUT%\\" /Fd"%OUT%\vc140.pdb" /Fe"%OUT%\main.exe" @"%RSP%"
 if errorlevel 1 (
     echo.
     echo [FAILED] compile or link error, see messages above
