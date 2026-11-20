@@ -792,7 +792,7 @@ std::string findStudentIdByUserId(const std::string &userId,
         }
 
         std::string line;
-        std::getline(in, line); // 表头
+        std::getline(in, line);
 
         while (std::getline(in, line))
         {
@@ -825,9 +825,22 @@ std::string findStudentIdByUserId(const std::string &userId,
 
 } // namespace
 
-static void runBankGuiCore(const User& currentUser, BankRole role, const std::string& studentId,
-                           const std::filesystem::path& dataDirectory)
+void runBankGui(const User& currentUser, BankRole role,
+                const std::filesystem::path& dataDirectory)
 {
+    std::string studentId;
+    if (role == BankRole::Student)
+    {
+        studentId = findStudentIdByUserId(currentUser.getUserid(), dataDirectory);
+        if (studentId.empty())
+        {
+            MessageBoxW(GetHWnd(),
+                        L"没有找到该用户对应的学生档案，无法进入银行。",
+                        L"无法进入", MB_OK);
+            return;
+        }
+    }
+
     // 每次进入重新加载数据；窗口和双缓冲仍由主系统管理。
     try
     {
@@ -835,7 +848,7 @@ static void runBankGuiCore(const User& currentUser, BankRole role, const std::st
     }
     catch (const std::invalid_argument&)
     {
-        MessageBoxW(GetHWnd(), L"银行身份信息不完整，请由调用方传入角色和学生学号。", L"无法进入", MB_OK);
+        MessageBoxW(GetHWnd(), L"银行身份信息不完整，无法进入。", L"无法进入", MB_OK);
         return;
     }
     activeButtons = bank->isAdministrator() ? AdminButtons : StudentButtons;
@@ -961,28 +974,4 @@ static void runBankGuiCore(const User& currentUser, BankRole role, const std::st
     }
 }
 
-void runBankGui(const User& currentUser, BankRole role,
-                const std::filesystem::path& dataDirectory)
-{
-    std::string studentId;
-    if (role == BankRole::Student)
-    {
-        studentId = findStudentIdByUserId(currentUser.getUserid(), dataDirectory);
-        if (studentId.empty())
-        {
-            MessageBoxW(GetHWnd(),
-                        L"没有找到该用户对应的学生档案，无法进入银行。",
-                        L"无法进入", MB_OK);
-            return;
-        }
-    }
 
-    runBankGuiCore(currentUser, role, studentId, dataDirectory);
-}
-
-void runBankGui(const User& currentUser, BankRole role,
-                const std::string& studentId,
-                const std::filesystem::path& dataDirectory)
-{
-    runBankGuiCore(currentUser, role, studentId, dataDirectory);
-}
