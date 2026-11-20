@@ -42,6 +42,7 @@ COLORREF tipColor = RGB(200, 40, 40);
 
 // 图书管理所用全局变量
 LibrarySystem *lib = nullptr;
+LibraryAdminSystem *libA = nullptr;
 std::string reason = "";
 int selectedBook = -1; // 当前选中书本下标
 std::wstring libTip;   // 图书页面底部提示信息
@@ -386,14 +387,13 @@ int main()
     BeginBatchDraw(); // 双缓冲绘图,防止屏幕一闪一闪,会先绘制到缓冲区,通过flush来推到主屏幕上
 
     LibrarySystem normalLib("data/library.txt");
-    LibraryAdminSystem adminLib("data/library.txt");
-    lib = &normalLib; // 登录前先初始化为普通对象
+    LibraryAdminSystem adminLib("data/library.txt", "", "", "", "");
+    lib = &normalLib; 
+    libA = &adminLib;
     userM.loadData();
+    normalLib.loadData(reason);
+    adminLib.loadData(reason);
 
-    if (!lib->loadData(reason))
-    {
-        MessageBoxA(GetHWnd(), reason.c_str(), "加载失败", MB_OK);
-    }
     resetShown();
     drawAll();
 
@@ -739,7 +739,7 @@ int main()
                                 else
                                 {
                                     Book b(id, title, author, category, BookStatus::ON_SHELF, copies);
-                                    if (lib->addBook(b, reason))
+                                    if (libA->addBook(b, reason))
                                     {
                                         lib->saveData(reason);
                                         resetShown(); // 重新生成表格目录
@@ -795,7 +795,7 @@ int main()
                                     string newTitle = toString(part[0]);
                                     string newAuthor = toString(part[1]);
                                     string newCategory = toString(part[2]);
-                                    if (lib->updateBook(b.getBookId(), newTitle, newAuthor, newCategory, reason))
+                                    if (libA->updateBook(b.getBookId(), newTitle, newAuthor, newCategory, reason))
                                     {
                                         lib->saveData(reason);
                                         libTip = L"修改成功";
@@ -834,7 +834,7 @@ int main()
                                     libTip = L"库存必须是不小于 0 的整数";
                                     libTipColor = RGB(200, 40, 40);
                                 }
-                                else if (lib->adjustCopies(b.getBookId(), newTotal, reason))
+                                else if (libA->adjustCopies(b.getBookId(), newTotal, reason))
                                 {
                                     lib->saveData(reason);
                                     libTip = L"调整成功";
@@ -862,7 +862,7 @@ int main()
                             Book b;
                             lib->getBookAtIndex(selectedBook, b);
                             BookStatus bs = b.isonshelf() ? BookStatus::OUT_SHELF : BookStatus::ON_SHELF;
-                            if (lib->setBookStatus(b.getBookId(), bs, reason))
+                            if (libA->setBookStatus(b.getBookId(), bs, reason))
                             {
                                 lib->saveData(reason);
                                 libTip = L"状态已更新";
@@ -893,7 +893,7 @@ int main()
                             int answer = MessageBoxW(GetHWnd(), ques.c_str(), L"确认删除", MB_YESNO | MB_ICONQUESTION);
                             if (answer == IDYES)
                             {
-                                if (lib->removeBook(b.getBookId(), reason))
+                                if (libA->removeBook(b.getBookId(), reason))
                                 {
                                     lib->saveData(reason);
 
@@ -911,7 +911,7 @@ int main()
                             else
                             {
                                 libTip = L"已取消删除";
-                                libTipColor = RGB(108, 117, 125);
+                                libTipColor = RGB(200, 40, 40);
                             }
 
                             drawAll();
