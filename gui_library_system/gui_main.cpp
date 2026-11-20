@@ -12,6 +12,7 @@
 #include "student_gui.h"
 #include "student_manager_gui.h"
 #include "course_manager_gui.h"
+#include "gui_bank.h"
 
 // 定义枚举类page表示当前页面类型
 enum class Page
@@ -34,6 +35,7 @@ Page page = Page::Login;
 Role role = Role::stu;
 
 UserManager userM("../data/user.csv");
+User *cUser = nullptr;
 
 std::wstring username;
 std::wstring password;
@@ -388,7 +390,7 @@ int main()
 
     LibrarySystem normalLib("data/library.txt");
     LibraryAdminSystem adminLib("data/library.txt", "", "", "", "");
-    lib = &normalLib; 
+    lib = &normalLib;
     libA = &adminLib;
     userM.loadData();
     normalLib.loadData(reason);
@@ -457,6 +459,7 @@ int main()
                             if (userM.authenticateUser(toString(username), toString(password)))
                             {
                                 string userN = toString(username);
+                                cUser = userM.findUser(userN);
                                 switch (userN[0])
                                 {
                                 case 'U':
@@ -488,6 +491,7 @@ int main()
                 {
                     RECT libR = {455, 235, 755, 675};
                     RECT stuR = {110, 235, 410, 675};
+                    RECT bankR = {800, 235, 1100, 675};
 
                     if (PtInRect(&libR, p))
                     {
@@ -515,6 +519,30 @@ int main()
                         {
                             MessageBoxW(GetHWnd(), L"当前角色无权进入学生管理系统。",
                                         L"提示", MB_OK);
+                        }
+                    }
+
+                    else if (PtInRect(&bankR, p))
+                    {
+                        if (cUser == nullptr)//由于银行管理系统读取文件不是同一个,所以可能存在用户不存在的现象(没开户)
+                        {
+                            MessageBoxW(GetHWnd(), L"当前用户不存在", L"提示", MB_OK);
+                        }
+                        else if(role==Role::bankm)
+                        {
+                            runBankGui(*cUser,BankRole::Administrator,"../bank_manage_system");
+                        
+                            page=Page::Select;
+                            drawAll();
+                        }
+                        else if(role == Role::stu)
+                        {
+                            runBankGui(*cUser,BankRole::Student,"../bank_manage_system");
+                            
+                            page = Page::Select;
+                            drawAll();
+
+
                         }
                     }
                 }
