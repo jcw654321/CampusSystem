@@ -2,7 +2,6 @@
 #include "SavingAccount.h"
 #include "CreditAccount.h"
 #include <fstream>
-#include <iomanip>
 #include <sstream>
 #include <utility>
 
@@ -13,9 +12,7 @@ using namespace std;
 //                   CREDIT CU002 U002 -500 100000
 // 已销户账户在原行前加 CLOSED；旧储蓄记录末尾的利率字段会读取并忽略。
 // 旧信用账户记录中的额度仍按文件读取格式校验，但加载后统一使用固定额度。
-// transactions.txt: "转账" 100 "A001" "A002"
-// quoted 保留流水中的空账号字段，例如存款的转出账号是 ""。
-// 两个文件分开保存，并不构成原子事务；调用方要分别检查返回值。
+// 银行只保存账户数据，不保存交易记录。
 bool Banksystem::saveAccounts() const
 {
     ofstream out(dataDirectory / "accounts.txt");
@@ -112,82 +109,5 @@ bool Banksystem::loadAccounts()
         return false;
     }
     accounts.swap(loadedAccounts);
-    return true;
-}
-
-bool Banksystem::saveTransactions() const
-{
-    ofstream out(dataDirectory / "transactions.txt");
-    if (!out)
-    {
-        return false;
-    }
-    for (const auto &transaction : transactions)
-    {
-        out << quoted(transaction.type) << ' ' << transaction.amount << ' '
-            << quoted(transaction.fromAccountId) << ' ' << quoted(transaction.toAccountId) << '\n';
-    }
-    out.close();
-    return !out.fail();
-}
-
-bool Banksystem::loadTransactions()
-{
-    ifstream in(dataDirectory / "transactions.txt");
-    if (!in)
-    {
-        return false;
-    }
-    // 账户已经加载完成，下面还要检查每条流水引用的账号。
-    vector<Transaction> loadedTransactions;
-    string line;
-    while (getline(in, line))
-    {
-        istringstream row(line);
-        Transaction transaction;
-        if (!(row >> quoted(transaction.type) >> transaction.amount >>
-              quoted(transaction.fromAccountId) >> quoted(transaction.toAccountId)))
-        {
-            return false;
-        }
-        string extra;
-        if (transaction.amount <= 0 || (row >> extra))
-        {
-            return false;
-        }
-        if (transaction.type == "存款")
-        {
-            if (!transaction.fromAccountId.empty() || !findAccountInternal(transaction.toAccountId))
-            {
-                return false;
-            }
-        }
-        else if (transaction.type == "取款")
-        {
-            if (!findAccountInternal(transaction.fromAccountId) || !transaction.toAccountId.empty())
-            {
-                return false;
-            }
-        }
-        else if (transaction.type == "转账")
-        {
-            if (!findAccountInternal(transaction.fromAccountId) ||
-                !findAccountInternal(transaction.toAccountId) ||
-                transaction.fromAccountId == transaction.toAccountId)
-            {
-                return false;
-            }
-        }
-        else
-        {
-            return false;
-        }
-        loadedTransactions.push_back(transaction);
-    }
-    if (in.bad() || !in.eof())
-    {
-        return false;
-    }
-    transactions.swap(loadedTransactions);
     return true;
 }

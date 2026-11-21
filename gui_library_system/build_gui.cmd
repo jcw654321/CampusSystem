@@ -3,9 +3,31 @@ setlocal
 cd /d "%~dp0"
 if not exist build mkdir build
 
-call "D:\Visual Studio\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+set "VSROOT="
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+    for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSROOT=%%i"
+)
+if not defined VSROOT if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" set "VSROOT=%ProgramFiles%\Microsoft Visual Studio\2022\Community"
+if not defined VSROOT (
+    echo [ERROR] Visual Studio C++ tools were not found.
+    exit /b 1
+)
+
+call "%VSROOT%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] failed to run vcvars64.bat
+    exit /b 1
+)
+
+set "EASYX_INCLUDE=..\third_party\easyx\include"
+set "EASYX_LIB=..\third_party\easyx\lib\x64\EasyXw.lib"
+if not exist "%EASYX_INCLUDE%\graphics.h" (
+    echo [ERROR] EasyX headers were not found.
+    exit /b 1
+)
+if not exist "%EASYX_LIB%" (
+    echo [ERROR] EasyX x64 library was not found.
     exit /b 1
 )
 
@@ -17,7 +39,7 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    /I"..\student_manage_system\include" ^
    /I"..\gui_bank_system" ^
    /I"..\bank_manage_system\include" ^
-   /I"D:\Visual Studio\VC\Auxiliary\VS\include" ^
+   /I"%EASYX_INCLUDE%" ^
    gui_main.cpp ^
    ..\library_manage_system\src\book.cpp ^
    ..\library_manage_system\src\dateutils.cpp ^
@@ -34,13 +56,15 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    ..\src\user.cpp ^
    ..\src\user_manager.cpp ^
    ..\gui_bank_system\gui_bank.cpp ^
+   ..\gui_bank_system\gui_bank_admin.cpp ^
+   ..\gui_bank_system\gui_bank_student.cpp ^
    ..\bank_manage_system\src\BankAccount.cpp ^
    ..\bank_manage_system\src\SavingAccount.cpp ^
    ..\bank_manage_system\src\CreditAccount.cpp ^
    ..\bank_manage_system\src\Banksystem.cpp ^
    ..\bank_manage_system\src\BanksystemFile.cpp ^
    /Fo"build\\" /Fe"build\gui.exe" ^
-   /link "D:\Visual Studio\VC\Auxiliary\VS\lib\x64\EasyXw.lib" user32.lib gdi32.lib winmm.lib shell32.lib
+   /link "%EASYX_LIB%" user32.lib gdi32.lib winmm.lib shell32.lib
 
 if errorlevel 1 (
     echo.

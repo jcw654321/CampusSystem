@@ -1,11 +1,9 @@
 #pragma once
 
 #include "BankAccount.h"
-#include "Transaction.h"
 #include "user.h"
 #include <filesystem>
 #include <memory>
-#include <optional>
 #include <vector>
 
 // 继承已登录用户的身份；管理员开户和查询，普通用户只操作本人账户。
@@ -23,10 +21,6 @@ public:
     // 返回当前身份可查看的内容。账户只读，不能绕过交易函数直接改余额。
     // 返回的账户指针在此对象销毁或重新加载账户后失效，界面应重新获取列表。
     std::vector<const BankAccount*> getAccounts() const;
-    std::vector<Transaction> getTransactions() const;
-    // 无权查看或账号不存在时返回 nullopt；账号有效但没有流水时返回空列表。
-    std::optional<std::vector<Transaction>> getAccountTransactions(
-        const std::string& accountId) const;
     const BankAccount* findAccount(const std::string& accountId) const;
     bool canOperateAccount(const std::string& accountId) const;
 
@@ -44,18 +38,14 @@ public:
 
     // 保存的是完整数据，不能把按用户过滤的列表写回文件而丢失其他人的账户。
     bool loadAccounts();
-    bool loadTransactions();
     bool saveAccounts() const;
-    bool saveTransactions() const;
 
 private:
     std::string openAccount(const std::string& ownerUserId, bool credit);
-    bool canViewHistory(const std::string& accountId) const;
     BankAccount* findAccountInternal(const std::string& accountId) const;
     bool canViewAccount(const BankAccount& account) const;
     std::unique_ptr<BankAccount> parseAccountLine(const std::string& line) const;
     bool administrator;
     std::filesystem::path dataDirectory;
     std::vector<std::unique_ptr<BankAccount>> accounts;
-    std::vector<Transaction> transactions;
 };

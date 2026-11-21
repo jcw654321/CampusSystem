@@ -7,7 +7,7 @@
 
 using namespace std;
 
-// 账户业务按“查询 → 开户 → 存取款 → 转账 → 流水查询”阅读。
+// 账户业务按“查询 → 开户 → 存取款 → 转账”阅读。
 // 对具体账户调用 withdraw 时，由虚函数自动选择储蓄或信用取款规则。
 Banksystem::Banksystem(const User& currentUser, bool isAdministrator,
                        const filesystem::path& dataDirectory)
@@ -63,36 +63,6 @@ vector<const BankAccount*> Banksystem::getAccounts() const
     return visible;
 }
 
-vector<Transaction> Banksystem::getTransactions() const
-{
-    vector<Transaction> visible;
-    for (const auto& transaction : transactions)
-    {
-        // 普通用户能看到涉及本人任一账户的流水，包括别人转给自己的记录。
-        if (isAdministrator() || canViewHistory(transaction.fromAccountId) ||
-            canViewHistory(transaction.toAccountId))
-            visible.push_back(transaction);
-    }
-    return visible;
-}
-
-optional<vector<Transaction>> Banksystem::getAccountTransactions(const string& accountId) const
-{
-    if (!canViewHistory(accountId)) return nullopt;
-
-    vector<Transaction> accountTransactions;
-    for (const auto& transaction : transactions)
-        if (transaction.fromAccountId == accountId || transaction.toAccountId == accountId)
-            accountTransactions.push_back(transaction);
-    return accountTransactions;
-}
-
-bool Banksystem::canViewHistory(const string& accountId) const
-{
-    const auto* account = findAccountInternal(accountId);
-    return account && canViewAccount(*account); // 已销户账户仍可查询原有流水。
-}
-
 bool Banksystem::userExists(const string& userId) const
 {
     if (userId.empty() || userId.find_first_of(", \t\r\n") != string::npos)
@@ -146,7 +116,7 @@ string Banksystem::openAccount(const string& ownerUserId, bool credit)
     unique_ptr<BankAccount> created;
     if (credit) created = make_unique<CreditAccount>(accountId, ownerUserId);
     else created = make_unique<SavingAccount>(accountId, ownerUserId);
-    // 重新开户沿用相同账号和历史流水，不产生第二个有效同类账户。
+    // 重新开户沿用相同账号，不产生第二个有效同类账户。
     for (auto& account : accounts)
         if (account->getAccountId() == accountId)
         {
@@ -162,7 +132,7 @@ bool Banksystem::closeAccount(const string& accountId)
     auto* account = findAccountInternal(accountId);
     if (!isAdministrator() || !account || account->isClosed() || account->getBalance() != 0)
         return false;
-    account->closed = true; // 保留归属和历史流水，但禁止后续存取款、收付款。
+    account->closed = true; // 保留归属，但禁止后续存取款、收付款。
     return true;
 }
 
@@ -171,17 +141,7 @@ bool Banksystem::withdraw(const string &accountId, int64_t amount)
     if (!canOperateAccount(accountId))
         return false;
     BankAccount *account = findAccountInternal(accountId);
-    if (account == nullptr)
-    {
-        return false;
-    }
-    if (!account->withdraw(amount))
-    {
-        return false;
-    }
-    // 账户操作成功后再记录流水，避免失败操作留下成功记录。
-    transactions.push_back({"取款", amount, accountId, ""});
-    return true;
+    return account->withdraw(amount);
 }
 
 bool Banksystem::deposit(const string &accountId, int64_t amount)
@@ -189,16 +149,7 @@ bool Banksystem::deposit(const string &accountId, int64_t amount)
     if (!canOperateAccount(accountId))
         return false;
     BankAccount *account = findAccountInternal(accountId);
-    if (account == nullptr)
-    {
-        return false;
-    }
-    if (!account->deposit(amount))
-    {
-        return false;
-    }
-    transactions.push_back({"存款", amount, "", accountId});
-    return true;
+    return account->deposit(amount);
 }
 
 bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId, int64_t amount)
@@ -207,7 +158,7 @@ bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId
         return false;
     BankAccount *fromAccount = findAccountInternal(fromAccountId);
     BankAccount *toAccount = findAccountInternal(toAccountId);
-    if (fromAccount == nullptr || toAccount == nullptr || toAccount->isClosed())
+    if (toAccount == nullptr || toAccount->isClosed())
     {
         return false;
     }
@@ -231,10 +182,9 @@ bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId
     }
     if (!toAccount->deposit(amount))
     {
-        // 入账失败时退回刚才扣除的金额，不生成流水。
+        // 入账失败时退回刚才扣除的金额。
         fromAccount->deposit(amount);
         return false;
     }
-    transactions.push_back({"转账", amount, fromAccountId, toAccountId});
     return true;
 }
