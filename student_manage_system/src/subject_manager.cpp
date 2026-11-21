@@ -1,5 +1,6 @@
 #include "subject_manager.h"
 #include "fileoperate.h"
+#include "student_manager.h"
 #include<iostream>
 #include<algorithm>
 #include<fstream>
@@ -7,6 +8,176 @@
 using namespace std;
 
 const string student_filepath = ".\\data\\student_data\\student_data.csv";
+
+bool SubjectManager::loadRecords()
+{
+    StudentManager studentManager("管理员", "", "admin", "");
+    if (!studentManager.loadRecords())
+        return false;
+    records = studentManager.getStudents();
+    loadSubjectsFromfile(records);
+    return true;
+}
+
+bool SubjectManager::saveRecords() const
+{
+    for (const Student& student : records)
+    {
+        const string filepath = ".\\data\\subject_data\\" +
+                                student.getStudentId() + ".csv";
+        ofstream file(filepath, ios::binary | ios::trunc);
+        if (!file)
+            return false;
+
+        file << "\xEF\xBB\xBF" << "课程名称,课程ID,教师姓名,课程成绩\n";
+        for (const subject& subject : student.getSubjects())
+        {
+            file << escapeCsvField(subject.getName()) << ','
+                 << escapeCsvField(subject.getSubjectId()) << ','
+                 << escapeCsvField(subject.getTeacherName()) << ','
+                 << subject.getScore() << '\n';
+        }
+        if (!static_cast<bool>(file))
+            return false;
+    }
+    return true;
+}
+
+bool SubjectManager::addRecord(const DataRecord& record)
+{
+    if (record.fields.size() != 5)
+        return false;
+
+    const vector<string>& f = record.fields;
+    float score = -1.0f;
+    if (!f[4].empty() && f[4] != "-1" && !parseScore(f[4], score))
+        return false;
+
+    if (!loadRecords())
+        return false;
+
+    for (Student& student : records)
+    {
+        if (student.getStudentId() == f[0])
+        {
+            for (const subject& existing : student.getSubjects())
+            {
+                if (existing.getSubjectId() == f[2])
+                    return false;
+            }
+
+            student.subjects.push_back(subject(f[1], f[2], f[3], score));
+            return saveRecords();
+        }
+    }
+    return false;
+}
+
+bool SubjectManager::removeRecord(const string& key)
+{
+    const size_t separator = key.find('|');
+    if (separator == string::npos)
+        return false;
+
+    const string studentId = key.substr(0, separator);
+    const string subjectId = key.substr(separator + 1);
+    for (Student& student : records)
+    {
+        if (student.getStudentId() == studentId)
+        {
+            student.subjects.erase(
+                remove_if(student.subjects.begin(), student.subjects.end(),
+                          [&subjectId](const subject& subject)
+                          { return subject.getSubjectId() == subjectId; }),
+                student.subjects.end());
+            return saveRecords();
+        }
+    }
+    return false;
+}
+
+bool SubjectManager::updateRecord(const string& key, const DataRecord& record)
+{
+    if (record.fields.size() != 5)
+        return false;
+
+    const vector<string>& f = record.fields;
+    float score = -1.0f;
+    if (!f[4].empty() && !parseScore(f[4], score))
+        return false;
+
+    const size_t separator = key.find('|');
+    if (separator == string::npos)
+        return false;
+
+    const string studentId = key.substr(0, separator);
+    const string subjectId = key.substr(separator + 1);
+    for (Student& student : records)
+    {
+        if (student.getStudentId() == studentId)
+        {
+            for (subject& subject : student.subjects)
+            {
+                if (subject.getSubjectId() == subjectId)
+                {
+                    if (!f[1].empty())
+                        subject.setName(f[1]);
+                    if (!f[2].empty())
+                        subject.setSubjectId(f[2]);
+                    if (!f[3].empty())
+                        subject.setTeacherName(f[3]);
+                    subject.setScore(score);
+                    return saveRecords();
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void SubjectManager::syncStudent(Student& student)
+{
+    for (Student& record : records)
+    {
+        if (record.getStudentId() == student.getStudentId())
+        {
+            student = record;
+            return;
+        }
+    }
+}
+
+bool SubjectManager::findRecord(const string& key, DataRecord& record) const
+{
+    const size_t separator = key.find('|');
+    if (separator == string::npos)
+        return false;
+
+    const string studentId = key.substr(0, separator);
+    const string subjectId = key.substr(separator + 1);
+    for (const Student& student : records)
+    {
+        if (student.getStudentId() != studentId)
+            continue;
+
+        for (const subject& subject : student.subjects)
+        {
+            if (subject.getSubjectId() == subjectId)
+            {
+                record.key = key;
+                record.fields = {
+                    studentId,
+                    subject.getName(),
+                    subject.getSubjectId(),
+                    subject.getTeacherName(),
+                    to_string(subject.getScore())
+                };
+                return true;
+            }
+        }
+    }
+    return false;
+}
 
 void SubjectManager::loadSubjectsFromfile(vector<Student>&students)
 {
@@ -41,44 +212,12 @@ void SubjectManager::loadSubjectsFromfile(vector<Student>&students)
                 !parseScore(fields[3], score))
                 continue;
 
-            addSubject(student, subject(fields[0], fields[1], fields[2], score));
+            student.subjects.push_back(
+                subject(fields[0], fields[1], fields[2], score));
         
         }
     }
 }
-
-bool SubjectManager::saveSubjectsToFile(const Student& student) const
-{
-    const string filepath = ".\\data\\subject_data\\" +
-                            student.getStudentId() + ".csv";
-
-    ofstream file(filepath, ios::binary | ios::trunc);
-    if (!file)
-        return false;
-
-    file << "\xEF\xBB\xBF" << "课程名称,课程ID,教师姓名,课程成绩\n";
-    for (const subject& subject : student.getSubjects())
-    {
-        file << escapeCsvField(subject.getName()) << ','
-             << escapeCsvField(subject.getSubjectId()) << ','
-             << escapeCsvField(subject.getTeacherName()) << ','
-             << subject.getScore() << '\n';
-    }
-
-    file.flush();
-    return static_cast<bool>(file);
-}
-
-bool SubjectManager::hasSubject(const Student& student, const string& subjectId) const
-{
-    const vector<subject>& subjects = student.getSubjects();
-    return any_of(subjects.begin(), subjects.end(),
-                  [&subjectId](const subject& current)
-                  {
-                      return current.getSubjectId() == subjectId;
-                  });
-}
-
 
 void SubjectManager::showStudentsubjects(const Student& student) const
 {
@@ -164,52 +303,4 @@ vector<const Student*> SubjectManager::findBysubject(const vector<Student>& stud
     }
 
     return matched;
-}
-
-void SubjectManager::addSubject(Student& student, const subject& s) {
-    student.subjects.push_back(s);
-}
-
-void SubjectManager::removeSubject(Student& student, const string& subjectId) {
-    auto& subjects = student.subjects;
-    for (auto it = subjects.begin(); it != subjects.end(); ) {
-        if (it->getSubjectId() == subjectId) {
-            it = subjects.erase(it); // erase 返回下一个有效迭代器
-        } else {
-            ++it;
-        }
-    }
-}
-
-void SubjectManager::updateScore(Student& student, const string& subjectId, float score) {
-    for (auto& s : student.subjects) {
-        if (s.getSubjectId() == subjectId) {
-            s.setScore(score);
-            break;
-        }
-    }
-}
-
-void SubjectManager::getSubject(const Student& student, const string& subjectId) const {
-    for (const auto& s : student.subjects) {
-        if (s.getSubjectId() == subjectId) {
-            cout << "课程名称: " << s.getName() << ", 课程ID: " << s.getSubjectId()
-                 << ", 教师姓名: " << s.getTeacherName() << ", 成绩: " << s.getScore() << endl;
-            return;
-        }
-    }
-    cout << "未找到该课程信息。" << endl;
-}
-
-void SubjectManager::getScores(const Student& student) const {
-    cout << "学生: " << student.getName() << " 的成绩信息:" << endl;
-    for (const auto& s : student.subjects) {
-        if(s.getScore() >= 0.0) { // 只打印有成绩的课程
-            cout << "课程名称: " << s.getName() << ", 课程ID: " << s.getSubjectId()
-                 << ", 教师姓名: " << s.getTeacherName() << ", 成绩: " << s.getScore() << endl;
-        } else {
-            cout << "课程名称: " << s.getName() << ", 课程ID: " << s.getSubjectId()
-                 << ", 教师姓名: " << s.getTeacherName() << ", 成绩: 未录入" << endl;
-        }
-    }
 }

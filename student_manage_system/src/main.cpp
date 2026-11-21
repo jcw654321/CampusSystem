@@ -45,7 +45,9 @@ Student* selectStudentSubject(vector<Student>& students, SubjectManager& subject
         return nullptr;
 
     subjectId = input(subjectPrompt);
-    if (!subjectManager.hasSubject(*student, subjectId)) {
+    DataRecord record;
+    if (!subjectManager.findRecord(
+            student->getStudentId() + "|" + subjectId, record)) {
         cout << "该学生未选修此课程。\n";
         return nullptr;
     }
@@ -53,16 +55,6 @@ Student* selectStudentSubject(vector<Student>& students, SubjectManager& subject
 }
 
 //
-void saveStudentSubjects(Student& student, const Student& updatedStudent, const SubjectManager& subjectManager,const string& successMessage,const string& failureMessage) {
-    if (!subjectManager.saveSubjectsToFile(updatedStudent)) {
-        cout << failureMessage << '\n';
-        return;
-    }
-
-    student = updatedStudent;
-    cout << successMessage << '\n';
-}
-
 void managesubjects(vector<Student>& students,
                    SubjectManager& subjectManager) {
     while (true) {
@@ -98,7 +90,9 @@ void managesubjects(vector<Student>& students,
                 break;
             }
 
-            if (subjectManager.hasSubject(*student, subjectId)) {
+            DataRecord existingRecord;
+            if (subjectManager.findRecord(
+                    studentId + "|" + subjectId, existingRecord)) {
                 cout << "该学生已存在此课程ID。\n";
                 break;
             }
@@ -111,11 +105,17 @@ void managesubjects(vector<Student>& students,
                 break;
             }
 
-            Student updatedStudent = *student;
-            subjectManager.addSubject(updatedStudent,subject(subjectName, subjectId, teacherName, score));
-            saveStudentSubjects(*student, updatedStudent, subjectManager,
-                                "课程添加并保存完成。",
-                                "保存课程失败，未更改学生课程。");
+            DataRecord record{
+                studentId,
+                {studentId, subjectName, subjectId, teacherName,
+                 scoreText.empty() ? "-1" : scoreText}
+            };
+            if (subjectManager.addRecord(record)) {
+                subjectManager.syncStudent(*student);
+                cout << "课程添加并保存完成。\n";
+            } else {
+                cout << "保存课程失败，未更改学生课程。\n";
+            }
             break;
         }
         //3. 删除课程
@@ -126,11 +126,13 @@ void managesubjects(vector<Student>& students,
             if (!student)
                 break;
 
-            Student updatedStudent = *student;
-            subjectManager.removeSubject(updatedStudent, subjectId);
-            saveStudentSubjects(*student, updatedStudent, subjectManager,
-                                "课程删除并保存完成。",
-                                "保存课程失败，未更改学生课程。");
+            if (subjectManager.removeRecord(
+                    student->getStudentId() + "|" + subjectId)) {
+                subjectManager.syncStudent(*student);
+                cout << "课程删除并保存完成。\n";
+            } else {
+                cout << "保存课程失败，未更改学生课程。\n";
+            }
             break;
         }
         //4. 录入/修改成绩
@@ -148,11 +150,16 @@ void managesubjects(vector<Student>& students,
                 break;
             }
 
-            Student updatedStudent = *student;
-            subjectManager.updateScore(updatedStudent, subjectId, score);
-            saveStudentSubjects(*student, updatedStudent, subjectManager,
-                                "成绩修改并保存完成。",
-                                "保存成绩失败，未更改学生课程。");
+            DataRecord record{
+                student->getStudentId() + "|" + subjectId,
+                {student->getStudentId(), "", subjectId, "", to_string(score)}
+            };
+            if (subjectManager.updateRecord(record.key, record)) {
+                subjectManager.syncStudent(*student);
+                cout << "成绩修改并保存完成。\n";
+            } else {
+                cout << "保存成绩失败，未更改学生课程。\n";
+            }
             break;
         }
         case '0':
@@ -170,7 +177,13 @@ int runApplication() {
 
     StudentManager manager("管理员", "admin@example.com", "admin", "123456");
     SubjectManager subjectManager("管理员", "admin@example.com", "admin", "123456");
-    vector<Student> students = manager.loadStudentsFromFile();
+
+    Manager* managerBase = &manager;
+    Manager* subjectManagerBase = &subjectManager;
+    managerBase->loadRecords();
+    subjectManagerBase->loadRecords();
+
+    vector<Student> students = manager.getStudents();
     subjectManager.loadSubjectsFromfile(students);
 
     while (true) {
@@ -227,8 +240,15 @@ int runApplication() {
             }
 
             Student student(name, email, userId, password, major, id, className, sex);
-            if (manager.addStudent(students, student))
+            DataRecord record{
+                id,
+                {userId, name, sex, email, password, major, id, className}
+            };
+            if (manager.addRecord(record))
+            {
+                students = manager.getStudents();
                 cout << "新增并保存完成。\n";
+            }
             else
                 cout << "新增完成，但保存文件失败。\n";
             break;
@@ -250,8 +270,15 @@ int runApplication() {
             const string className = inputOrCurrent("班级（留空保持不变）: ", currentStudent->getClassName());
              
             Student updatedStudent(name, email, userId, password, major, id, className, sex);
-            if (manager.updateStudent(students, updatedStudent))
+            DataRecord record{
+                id,
+                {userId, name, sex, email, password, major, id, className}
+            };
+            if (manager.updateRecord(id, record))
+            {
+                students = manager.getStudents();
                 cout << "修改并保存完成。\n";
+            }
             else
                 cout << "修改完成，但保存文件失败。\n";
             break;
@@ -262,8 +289,11 @@ int runApplication() {
             if (!findStudent(students, id))
                 break;
 
-            if (manager.removeStudent(students, id))
+            if (manager.removeRecord(id))
+            {
+                students = manager.getStudents();
                 cout << "删除并保存完成。\n";
+            }
             else
                 cout << "删除完成，但保存文件失败。\n";
             break;

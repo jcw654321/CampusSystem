@@ -282,8 +282,15 @@ namespace
 
             Student s(name, email, userId, password, major, id, className);
             s.setSex(sex);
-            if (studentManager.addStudent(students, s))
+            DataRecord record{
+                id,
+                {userId, name, sex, email, password, major, id, className}
+            };
+            if (studentManager.addRecord(record))
+            {
+                students = studentManager.getStudents();
                 showText("学生已添加并保存。");
+            }
             else
                 showText("学生已添加，但保存文件失败。");
         }
@@ -299,8 +306,11 @@ namespace
                 return;
             }
 
-            if (studentManager.removeStudent(students, id))
+            if (studentManager.removeRecord(id))
+            {
+                students = studentManager.getStudents();
                 showText("学生已删除并保存。");
+            }
             else
                 showText("学生已删除，但保存文件失败。");
         }
@@ -339,8 +349,15 @@ namespace
             updatedStudent = Student(name, email, userId, password, major, studentId, className);
             updatedStudent.setSex(sex);
 
-            if (studentManager.updateStudent(students, updatedStudent))
+            DataRecord record{
+                id,
+                {userId, name, sex, email, password, major, studentId, className}
+            };
+            if (studentManager.updateRecord(id, record))
+            {
+                students = studentManager.getStudents();
                 showText("学生信息已更新并保存。");
+            }
             else
                 showText("学生信息已更新，但保存文件失败。");
         }
@@ -423,7 +440,12 @@ void runStudentManagerGui()
             std::filesystem::current_path("student_manage_system");
     }
 
-    students = studentManager.loadStudentsFromFile();
+    Manager* studentManagerBase = &studentManager;
+    Manager* subjectManagerBase = &subjectManager;
+    studentManagerBase->loadRecords();
+    subjectManagerBase->loadRecords();
+
+    students = studentManager.getStudents();
     subjectManager.loadSubjectsFromfile(students);
 
     drawCurrentPage();

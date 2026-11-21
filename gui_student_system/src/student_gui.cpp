@@ -121,7 +121,10 @@ void runStudentGui(const string& userId)
     }
 
     StudentManager manager("管理员", "", "admin", "");
-    vector<Student> students = manager.loadStudentsFromFile();
+    Manager* managerBase = &manager;
+    managerBase->loadRecords();
+    manager.loadRecords();
+    vector<Student> students = manager.getStudents();
 
     SubjectManager subjectManager("管理员", "", "admin", "");
     subjectManager.loadSubjectsFromfile(students);

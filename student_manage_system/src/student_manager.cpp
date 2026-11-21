@@ -8,11 +8,11 @@ using namespace std;
 
 const string filepath = ".\\data\\student_data\\student_data.csv";
 
-vector<Student> StudentManager::loadStudentsFromFile()
+bool StudentManager::loadRecords()
 {
     ifstream file(filepath, ios::binary);
     if (!file)
-        return {};
+        return false;
 
     string line;
     getline(file, line);
@@ -34,15 +34,10 @@ vector<Student> StudentManager::loadStudentsFromFile()
     }
 
     students.swap(loadedStudents);
-    this->students = students;
-    return students;
+    return true;
 }
 
-void StudentManager::getAllStudents(const vector<Student>& students) {
-    this->students = students;
-}
-
-bool StudentManager::saveStudentsToFile(const vector<Student>& students) const
+bool StudentManager::saveRecords() const
 {
     ofstream file(filepath, ios::binary | ios::trunc);
     if (!file)
@@ -63,16 +58,24 @@ bool StudentManager::saveStudentsToFile(const vector<Student>& students) const
     return static_cast<bool>(file);
 }
 
-bool StudentManager::addStudent(vector<Student>& students, const Student& student) {
+bool StudentManager::addRecord(const DataRecord& record)
+{
+    if (record.fields.size() != 8)
+        return false;
+
+    const vector<string>& f = record.fields;
+    Student student(f[1], f[3], f[0], f[4],
+                    f[5], f[6], f[7], f[2]);
     students.push_back(student);
-    if (!saveStudentsToFile(students))
+    if (!saveRecords())
         return false;
 
     UserManager userManager("..\\data\\user.csv");
     return userManager.SaveUser(student);
 }
 
-bool StudentManager::removeStudent(vector<Student>& students, const string& studentId) {
+bool StudentManager::removeRecord(const string& studentId)
+{
     for (auto it = students.begin(); it != students.end(); ++it) {
         if (it->getStudentId() == studentId) {
             const filesystem::path courseFileName(studentId + ".csv");
@@ -82,7 +85,7 @@ bool StudentManager::removeStudent(vector<Student>& students, const string& stud
 
             const string userid = it->getUserid();
             students.erase(it);
-            if (!saveStudentsToFile(students))
+            if (!saveRecords())
                 return false;
 
             UserManager userManager("..\\data\\user.csv");
@@ -102,9 +105,16 @@ bool StudentManager::removeStudent(vector<Student>& students, const string& stud
     return false;
 }
 
-bool StudentManager::updateStudent(vector<Student>& students, const Student& student) {
+bool StudentManager::updateRecord(const string& key, const DataRecord& record)
+{
+    if (record.fields.size() != 8)
+        return false;
+
+    const vector<string>& f = record.fields;
+    Student student(f[1], f[3], f[0], f[4],
+                    f[5], f[6], f[7], f[2]);
     for (auto& current : students) {
-        if (current.getStudentId() == student.getStudentId()) {
+        if (current.getStudentId() == key) {
             const string previousUserid = current.getUserid();
             current.setName(student.getName());
             current.setEmail(student.getEmail());
@@ -113,7 +123,7 @@ bool StudentManager::updateStudent(vector<Student>& students, const Student& stu
             current.setClassName(student.getClassName());
             current.setSex(student.getSex());
             current.setUserid(student.getUserid());
-            if (!saveStudentsToFile(students))
+            if (!saveRecords())
                 return false;
 
             UserManager userManager("..\\data\\user.csv");
@@ -123,27 +133,28 @@ bool StudentManager::updateStudent(vector<Student>& students, const Student& stu
     return false;
 }
 
-Student StudentManager::getStudent(const vector<Student>& students, const string& studentId) const {
-    for (const auto& s : students) {
-        if (s.getStudentId() == studentId) {
-            return s;
-        }
-    }
-    cout << "Student with ID " << studentId << " not found." << endl;
-    return Student("", "", "", "", "", "", "");
-}
-
-const Student* StudentManager::findStudentByUserid(
-    const vector<Student>& students, const string& userid) const
+bool StudentManager::findRecord(const string& key, DataRecord& record) const
 {
     for (const Student& student : students)
     {
-        if (student.getUserid() == userid)
-            return &student;
+        if (student.getStudentId() == key)
+        {
+            record.key = key;
+            record.fields = {
+                student.getUserid(), student.getName(), student.getSex(),
+                student.getEmail(), student.getPassword(), student.getMajor(),
+                student.getStudentId(), student.getClassName()
+            };
+            return true;
+        }
     }
-    return nullptr;
+    return false;
 }
 
+const vector<Student>& StudentManager::getStudents() const
+{
+    return students;
+}
 void StudentManager::printStudentInfo(const Student& student) const {
     cout << "姓名: " << student.getName() << endl;
     cout << "性别: " << student.getSex() << endl;
