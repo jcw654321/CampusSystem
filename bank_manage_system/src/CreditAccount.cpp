@@ -2,36 +2,33 @@
 
 using namespace std;
 
-CreditAccount::CreditAccount(const string &accountId, const string &studentId, int64_t creditLimit,
-                             int64_t balance)
-    : BankAccount(accountId, studentId, balance)
+CreditAccount::CreditAccount(const string &accountId, const string &ownerUserId, int64_t balance)
+    : BankAccount(accountId, ownerUserId, balance)
 {
-    this->creditLimit = creditLimit;
 }
 
 int64_t CreditAccount::getCreditLimit() const
 {
-    return creditLimit;
+    return FixedCreditLimit;
 }
 
 bool CreditAccount::withdraw(int64_t amount)
 {
-    if (amount <= 0 || creditLimit < 0)
+    if (amount <= 0)
     {
         return false;
     }
-    // 目标规则是：balance - amount >= -creditLimit。
-    // 移项后先比较 balance >= amount - creditLimit，避免比较前就扣款。
-    if (balance < amount - creditLimit)
+    // 目标规则是：balance - amount >= -FixedCreditLimit。
+    // 移项后先比较 balance >= amount - FixedCreditLimit，避免比较前就扣款。
+    if (getBalance() < amount - FixedCreditLimit)
     {
         return false;
     }
-    balance -= amount;
-    return true;
+    return reduceBalance(amount);
 }
 
 void CreditAccount::writeTo(ostream &out) const
 {
-    out << "CREDIT " << accountId << ' ' << studentId << ' ' << balance << ' ' << creditLimit
-        << '\n';
+    out << "CREDIT " << getAccountId() << ' ' << getOwnerUserId() << ' ' << getBalance() << ' '
+        << FixedCreditLimit << '\n';
 }

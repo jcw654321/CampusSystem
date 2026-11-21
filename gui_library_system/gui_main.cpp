@@ -530,14 +530,14 @@ int main()
                         }
                         else if(role==Role::bankm)
                         {
-                            runBankGui(*cUser,BankRole::Administrator,"../bank_manage_system");
+                            runBankGui(*cUser, true, "../bank_manage_system");
                         
                             page=Page::Select;
                             drawAll();
                         }
                         else if(role == Role::stu)
                         {
-                            runBankGui(*cUser,BankRole::Student,"../bank_manage_system");
+                            runBankGui(*cUser, false, "../bank_manage_system");
                             
                             page = Page::Select;
                             drawAll();

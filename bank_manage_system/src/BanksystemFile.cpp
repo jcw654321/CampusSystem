@@ -9,8 +9,10 @@
 using namespace std;
 
 // 文件格式示例（金额都是分）：
-// accounts.txt:     SAVING A001 S001 1250 0.05
-//                   CREDIT A002 S002 -500 10000
+// accounts.txt:     SAVING SU001 U001 1250
+//                   CREDIT CU002 U002 -500 100000
+// 已销户账户在原行前加 CLOSED；旧储蓄记录末尾的利率字段会读取并忽略。
+// 旧信用账户记录中的额度仍按文件读取格式校验，但加载后统一使用固定额度。
 // transactions.txt: "转账" 100 "A001" "A002"
 // quoted 保留流水中的空账号字段，例如存款的转出账号是 ""。
 // 两个文件分开保存，并不构成原子事务；调用方要分别检查返回值。
@@ -23,6 +25,7 @@ bool Banksystem::saveAccounts() const
     }
     for (const auto &account : accounts)
     {
+        if (account->isClosed()) out << "CLOSED ";
         account->writeTo(out);
     }
     out.close();
@@ -32,42 +35,46 @@ bool Banksystem::saveAccounts() const
 unique_ptr<BankAccount> Banksystem::parseAccountLine(const string &line) const
 {
     istringstream in(line);
-    string type, accountId, studentId;
+    string type, accountId, ownerUserId;
     int64_t balance;
 
-    if (!(in >> type >> accountId >> studentId >> balance))
+    bool closed = false;
+    if (!(in >> type)) return nullptr;
+    if (type == "CLOSED")
     {
-        return nullptr;
+        closed = true;
+        if (!(in >> type)) return nullptr;
     }
-    string extra; // 检查这一行是否还有不应出现的多余字段
+    if (!(in >> accountId >> ownerUserId >> balance) || (closed && balance != 0)) return nullptr;
+    unique_ptr<BankAccount> account;
     if (type == "SAVING")
     {
-        double rate;
-        if (!(in >> rate))
+        if (accountId != "S" + ownerUserId) return nullptr;
+        if (balance < 0) return nullptr;
+        string legacyRate;
+        if (in >> legacyRate)
         {
-            return nullptr;
+            istringstream rateInput(legacyRate);
+            double ignoredRate;
+            string rateExtra;
+            if (!(rateInput >> ignoredRate) || ignoredRate < 0 || (rateInput >> rateExtra))
+                return nullptr;
         }
-        if ((in >> extra) || rate < 0 || balance < 0)
-        {
-            return nullptr;
-        }
-        return make_unique<SavingAccount>(accountId, studentId, rate, balance);
+        account = make_unique<SavingAccount>(accountId, ownerUserId, balance);
     }
-    if (type == "CREDIT")
+    else if (type == "CREDIT")
     {
-        int64_t limit;
-        if (!(in >> limit))
-        {
-            return nullptr;
-        }
-        // 先排除负额度，再取负数检查余额下限。
-        if ((in >> extra) || limit < 0 || balance < -limit)
-        {
-            return nullptr;
-        }
-        return make_unique<CreditAccount>(accountId, studentId, limit, balance);
+        if (accountId != "C" + ownerUserId) return nullptr;
+        int64_t legacyLimit;
+        if (!(in >> legacyLimit) || legacyLimit < 0 ||
+            balance < -CreditAccount::FixedCreditLimit) return nullptr;
+        account = make_unique<CreditAccount>(accountId, ownerUserId, balance);
     }
-    return nullptr;
+    else return nullptr;
+    string extra;
+    if (in >> extra) return nullptr;
+    account->closed = closed;
+    return account;
 }
 
 bool Banksystem::loadAccounts()
@@ -150,22 +157,22 @@ bool Banksystem::loadTransactions()
         }
         if (transaction.type == "存款")
         {
-            if (!transaction.fromAccountId.empty() || !accountExists(transaction.toAccountId))
+            if (!transaction.fromAccountId.empty() || !findAccountInternal(transaction.toAccountId))
             {
                 return false;
             }
         }
         else if (transaction.type == "取款")
         {
-            if (!accountExists(transaction.fromAccountId) || !transaction.toAccountId.empty())
+            if (!findAccountInternal(transaction.fromAccountId) || !transaction.toAccountId.empty())
             {
                 return false;
             }
         }
         else if (transaction.type == "转账")
         {
-            if (!accountExists(transaction.fromAccountId) ||
-                !accountExists(transaction.toAccountId) ||
+            if (!findAccountInternal(transaction.fromAccountId) ||
+                !findAccountInternal(transaction.toAccountId) ||
                 transaction.fromAccountId == transaction.toAccountId)
             {
                 return false;

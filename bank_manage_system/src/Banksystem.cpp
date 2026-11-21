@@ -1,7 +1,7 @@
 #include "Banksystem.h"
 #include "SavingAccount.h"
 #include "CreditAccount.h"
-#include <iostream>
+#include <fstream>
 #include <limits>
 #include <stdexcept>
 
@@ -9,45 +9,39 @@ using namespace std;
 
 // 账户业务按“查询 → 开户 → 存取款 → 转账 → 流水查询”阅读。
 // 对具体账户调用 withdraw 时，由虚函数自动选择储蓄或信用取款规则。
-namespace
-{
-constexpr double DefaultSavingInterestRate = 0.05;
-}
-
-Banksystem::Banksystem(const User& currentUser, BankRole role,
-                       const string& currentStudentId, const filesystem::path& dataDirectory)
-    : User(currentUser), role(role), currentStudentId(currentStudentId),
+Banksystem::Banksystem(const User& currentUser, bool isAdministrator,
+                       const filesystem::path& dataDirectory)
+    : User(currentUser), administrator(isAdministrator),
       dataDirectory(filesystem::absolute(dataDirectory))
 {
     // 不验证密码，只检查调用方是否给出了完整的已登录身份。
-    if (getUserid().empty() ||
-        (role != BankRole::Administrator && role != BankRole::Student) ||
-        (role == BankRole::Student && currentStudentId.empty()))
-        throw invalid_argument("银行需要有效角色；学生身份还必须包含已关联的学号。");
+    if (getUserid().empty())
+        throw invalid_argument("银行需要有效的登录用户身份。");
 }
 
 BankAccount* Banksystem::findAccountInternal(const string& accountId) const
 {
     for (const auto& account : accounts)
-        if (account->accountId == accountId)
+        if (account->getAccountId() == accountId)
             return account.get();
     return nullptr;
 }
 
 bool Banksystem::accountExists(const string& accountId) const
 {
-    return findAccountInternal(accountId) != nullptr;
+    const auto* account = findAccountInternal(accountId);
+    return account && !account->isClosed();
 }
 
 bool Banksystem::canViewAccount(const BankAccount& account) const
 {
-    return isAdministrator() || account.studentId == currentStudentId;
+    return isAdministrator() || account.getOwnerUserId() == getUserid();
 }
 
 const BankAccount* Banksystem::findAccount(const string& accountId) const
 {
     const BankAccount* account = findAccountInternal(accountId);
-    if (account && canViewAccount(*account))
+    if (account && !account->isClosed() && canViewAccount(*account))
         return account;
     return nullptr;
 }
@@ -56,14 +50,15 @@ bool Banksystem::canOperateAccount(const string& accountId) const
 {
     // 当前版本管理员不代办存取款、转账。
     const BankAccount* account = findAccountInternal(accountId);
-    return role == BankRole::Student && account && account->studentId == currentStudentId;
+    return !administrator && account && !account->isClosed() &&
+           account->getOwnerUserId() == getUserid();
 }
 
 vector<const BankAccount*> Banksystem::getAccounts() const
 {
     vector<const BankAccount*> visible;
     for (const auto& account : accounts)
-        if (canViewAccount(*account))
+        if (!account->isClosed() && canViewAccount(*account))
             visible.push_back(account.get());
     return visible;
 }
@@ -73,34 +68,101 @@ vector<Transaction> Banksystem::getTransactions() const
     vector<Transaction> visible;
     for (const auto& transaction : transactions)
     {
-        // 学生能看到涉及本人任一账户的流水，包括别人转给自己的记录。
-        if (isAdministrator() || canOperateAccount(transaction.fromAccountId) ||
-            canOperateAccount(transaction.toAccountId))
+        // 普通用户能看到涉及本人任一账户的流水，包括别人转给自己的记录。
+        if (isAdministrator() || canViewHistory(transaction.fromAccountId) ||
+            canViewHistory(transaction.toAccountId))
             visible.push_back(transaction);
     }
     return visible;
 }
 
-bool Banksystem::openSavingAccount(const string &accountId, const string &studentId)
+optional<vector<Transaction>> Banksystem::getAccountTransactions(const string& accountId) const
 {
-    if (!isAdministrator() || accountId.empty() || studentId.empty() || accountExists(accountId))
-    {
-        return false;
-    }
-    // make_unique 创建账户并交给容器管理，不需要手动 delete。
-    accounts.push_back(make_unique<SavingAccount>(accountId, studentId, DefaultSavingInterestRate));
-    return true;
+    if (!canViewHistory(accountId)) return nullopt;
+
+    vector<Transaction> accountTransactions;
+    for (const auto& transaction : transactions)
+        if (transaction.fromAccountId == accountId || transaction.toAccountId == accountId)
+            accountTransactions.push_back(transaction);
+    return accountTransactions;
 }
 
-bool Banksystem::openCreditAccount(const string &accountId, const string &studentId,
-                                   int64_t creditLimit)
+bool Banksystem::canViewHistory(const string& accountId) const
 {
-    if (!isAdministrator() || accountId.empty() || studentId.empty() ||
-        creditLimit < 0 || accountExists(accountId))
+    const auto* account = findAccountInternal(accountId);
+    return account && canViewAccount(*account); // 已销户账户仍可查询原有流水。
+}
+
+bool Banksystem::userExists(const string& userId) const
+{
+    if (userId.empty() || userId.find_first_of(", \t\r\n") != string::npos)
+        return false;
+
+    vector<filesystem::path> roots = {
+        dataDirectory, dataDirectory.parent_path(), dataDirectory.parent_path().parent_path()};
+    for (const auto& root : roots)
     {
+        ifstream in(root / "data" / "user.csv");
+        if (!in) continue;
+
+        string line;
+        getline(in, line);
+        while (getline(in, line))
+        {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            const auto separator = line.find(',');
+            if (separator != string::npos && line.substr(0, separator) == userId)
+                return true;
+        }
         return false;
     }
-    accounts.push_back(make_unique<CreditAccount>(accountId, studentId, creditLimit));
+    return false;
+}
+
+string Banksystem::openSavingAccount(const string& ownerUserId)
+{
+    return openAccount(ownerUserId, false);
+}
+
+string Banksystem::openCreditAccount(const string& ownerUserId)
+{
+    return openAccount(ownerUserId, true);
+}
+
+string Banksystem::openAccount(const string& ownerUserId, bool credit)
+{
+    if (!isAdministrator() || !userExists(ownerUserId)) return "";
+    // 按用户号和账户类型检查重复，不能只比较新生成的账号。
+    for (const auto& account : accounts)
+    {
+        bool sameType = (dynamic_cast<const CreditAccount*>(account.get()) != nullptr) == credit;
+        if (!account->isClosed() && account->getOwnerUserId() == ownerUserId && sameType) return "";
+    }
+    string accountId = (credit ? "C" : "S") + ownerUserId;
+    const auto* previous = findAccountInternal(accountId);
+    if (previous && (!previous->isClosed() || previous->getOwnerUserId() != ownerUserId ||
+        (dynamic_cast<const CreditAccount*>(previous) != nullptr) != credit)) return "";
+
+    unique_ptr<BankAccount> created;
+    if (credit) created = make_unique<CreditAccount>(accountId, ownerUserId);
+    else created = make_unique<SavingAccount>(accountId, ownerUserId);
+    // 重新开户沿用相同账号和历史流水，不产生第二个有效同类账户。
+    for (auto& account : accounts)
+        if (account->getAccountId() == accountId)
+        {
+            account = move(created);
+            return accountId;
+        }
+    accounts.push_back(move(created));
+    return accountId;
+}
+
+bool Banksystem::closeAccount(const string& accountId)
+{
+    auto* account = findAccountInternal(accountId);
+    if (!isAdministrator() || !account || account->isClosed() || account->getBalance() != 0)
+        return false;
+    account->closed = true; // 保留归属和历史流水，但禁止后续存取款、收付款。
     return true;
 }
 
@@ -145,7 +207,7 @@ bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId
         return false;
     BankAccount *fromAccount = findAccountInternal(fromAccountId);
     BankAccount *toAccount = findAccountInternal(toAccountId);
-    if (fromAccount == nullptr || toAccount == nullptr)
+    if (fromAccount == nullptr || toAccount == nullptr || toAccount->isClosed())
     {
         return false;
     }
@@ -175,35 +237,4 @@ bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId
     }
     transactions.push_back({"转账", amount, fromAccountId, toAccountId});
     return true;
-}
-
-void Banksystem::showTransactions(const string &accountId)
-{
-    if (!findAccount(accountId))
-    {
-        cout << "账号不存在或无权查看" << endl;
-        return;
-    }
-    bool found = false;
-    for (const auto &transaction : getTransactions())
-    {
-        if (transaction.fromAccountId == accountId || transaction.toAccountId == accountId)
-        {
-            found = true;
-            cout << "交易类型: " << transaction.type << ", 金额: " << transaction.amount;
-            if (!transaction.fromAccountId.empty())
-            {
-                cout << ", 转出账号: " << transaction.fromAccountId;
-            }
-            if (!transaction.toAccountId.empty())
-            {
-                cout << ", 转入账号: " << transaction.toAccountId;
-            }
-            cout << endl;
-        }
-    }
-    if (!found)
-    {
-        cout << "该账户暂无交易记录" << endl;
-    }
 }
