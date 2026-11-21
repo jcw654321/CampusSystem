@@ -318,8 +318,11 @@ void showPage(bool showHistory)
 
 void scrollPage(int offset)
 {
-    firstVisibleRow = max(0, firstVisibleRow + offset);
-    refreshVisibleRows();
+    int lastPageStart = visibleIndices.empty()
+                            ? 0
+                            : static_cast<int>((visibleIndices.size() - 1) / RowsPerPage) *
+                                  RowsPerPage;
+    firstVisibleRow = max(0, min(firstVisibleRow + offset, lastPageStart));
 }
 
 // 五、绘图：基础控件 → 表格和按钮 → 完整页面。
@@ -512,8 +515,6 @@ bool openAccount(bool creditAccount)
 
     selectedAccountId = accountId;
     searchKeyword.clear();
-    refreshVisibleRows();
-    firstVisibleRow = (static_cast<int>(visibleAccounts.size()) - 1) / RowsPerPage * RowsPerPage;
     return true;
 }
 
@@ -689,6 +690,11 @@ void handleAction(BankAction type)
                 setStatusMessage(L"业务办理成功，账户与流水已保存。", false);
         }
         refreshVisibleRows();
+        if (openingAccount)
+        {
+            firstVisibleRow =
+                (static_cast<int>(visibleAccounts.size()) - 1) / RowsPerPage * RowsPerPage;
+        }
     }
 }
 
@@ -793,7 +799,6 @@ void runBankGui(const User& currentUser, bool isAdministrator,
     {
         if (!peekmessage(&msg, EM_MOUSE | EM_KEY))
         {
-            drawBankPage();
             Sleep(10);
             continue;
         }
