@@ -15,6 +15,8 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    /I"..\include" ^
    /I"..\gui_student_system\include" ^
    /I"..\student_manage_system\include" ^
+   /I"..\gui_bank_system" ^
+   /I"..\bank_manage_system\include" ^
    /I"D:\Visual Studio\VC\Auxiliary\VS\include" ^
    gui_main.cpp ^
    ..\library_manage_system\src\book.cpp ^
@@ -31,6 +33,12 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    ..\student_manage_system\src\fileoperate.cpp ^
    ..\src\user.cpp ^
    ..\src\user_manager.cpp ^
+   ..\gui_bank_system\gui_bank.cpp ^
+   ..\bank_manage_system\src\BankAccount.cpp ^
+   ..\bank_manage_system\src\SavingAccount.cpp ^
+   ..\bank_manage_system\src\CreditAccount.cpp ^
+   ..\bank_manage_system\src\Banksystem.cpp ^
+   ..\bank_manage_system\src\BanksystemFile.cpp ^
    /Fo"build\\" /Fe"build\gui.exe" ^
    /link "D:\Visual Studio\VC\Auxiliary\VS\lib\x64\EasyXw.lib" user32.lib gdi32.lib winmm.lib shell32.lib
 
