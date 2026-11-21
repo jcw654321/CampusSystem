@@ -3,9 +3,7 @@
 #include<iostream>
 #include<algorithm>
 #include<fstream>
-#include <iomanip>
 #include <iostream>
-#include<stdexcept>
 using namespace std;
 
 const string student_filepath = ".\\data\\student_data\\student_data.csv";
@@ -38,10 +36,12 @@ void SubjectManager::loadSubjectsFromfile(vector<Student>&students)
                 fields[1].empty())   //如果此行解析失败或缺少某个要素或没有课程名跳过
                 continue;
 
-                float score = 0.0;
-                if(!parseScore(fields[3],score))
+            float score = -1.0f;
+            if (!fields[3].empty() && fields[3] != "-1" &&
+                !parseScore(fields[3], score))
+                continue;
 
-                addSubject(student, subject(fields[0],fields[1],fields[2],score));
+            addSubject(student, subject(fields[0], fields[1], fields[2], score));
         
         }
     }
@@ -66,7 +66,7 @@ bool SubjectManager::saveSubjectsToFile(const Student& student) const
     }
 
     file.flush();
-    return  true;
+    return static_cast<bool>(file);
 }
 
 bool SubjectManager::hasSubject(const Student& student, const string& subjectId) const
@@ -109,57 +109,6 @@ bool SubjectManager::parseScore(const string& text, float& score)
         size_t parsedLength = 0;
         score = stof(text, &parsedLength); //把成绩由string转成float
         return parsedLength == text.size()&&score >= 0.0f && score <= 100.0f;    //必须没有多余的字符且不是非法float且在0-100
-}
-
-void SubjectManager::showScoreRanking(const vector<Student>& students) const
-{
-    const vector<StudentAverage> ranked = rankByAverageScore(students);
-    if (ranked.empty())
-    {
-        cout << "目前没有可参与排名的成绩。\n";
-        return;
-    }
-
-    cout << fixed << setprecision(2);
-    for (size_t i = 0; i < ranked.size(); ++i)
-    {
-        const Student& student = *ranked[i].student;
-        cout << i + 1 << ". " << student.getName()
-             << " (学号: " << student.getStudentId()
-             << "), 平均成绩: " << ranked[i].average << '\n';
-    }
-}
-
-void SubjectManager::filterStudentsBysubject(
-    const vector<Student>& students, const string& subjectId) const
-{
-    const vector<const Student*> matched = findBysubject(students, subjectId);
-    if (matched.empty())
-    {
-        cout << "没有学生选修该课程。\n";
-        return;
-    }
-
-    for (const Student* student : matched)
-    {
-        for (const subject& subject : student->getSubjects())
-        {
-            if (subject.getSubjectId() == subjectId)
-            {
-                cout << "学生: " << student->getName()
-                     << " (学号: " << student->getStudentId() << ")"
-                     << ", 课程: " << subject.getName()
-                     << ", 教师: " << subject.getTeacherName()
-                     << ", 成绩: ";
-                if (subject.getScore() >= 0.0f)
-                    cout << subject.getScore();
-                else
-                    cout << "未录入";
-                cout << '\n';
-                break;
-            }
-        }
-    }
 }
 
 vector<StudentAverage> SubjectManager::rankByAverageScore(const vector<Student>& students) const

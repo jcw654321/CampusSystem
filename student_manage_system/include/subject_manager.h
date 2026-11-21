@@ -26,11 +26,8 @@ public:
     void updateScore(Student &student, const string &subjectId, float score); // 更新课程成绩
     void getSubject(const Student &student, const string &subjectId) const;   // 打印学生的课程信息
     void getScores(const Student &student) const;                             // 打印学生成绩信息
-    void showStudentsubjects(const Student &student) const;                   // 打印学生课程信息
-    void showScoreRanking(const vector<Student> &students) const;
-    void filterStudentsBysubject(const vector<Student> &students,
-                                 const string &subjectId) const;
-    static bool parseScore(const string &text, float &score);                //解析输入的分数
+    void showStudentsubjects(const Student &student) const;                   // 打印学生的所有课程信息
+    static bool parseScore(const string &text, float &score);                 //解析输入的分数
     vector<StudentAverage> rankByAverageScore(const vector<Student> &students) const; //按课程平均分排列
     vector<const Student *> findBysubject(const vector<Student> &students,const string &subjectId) const;//按课程筛选
 };

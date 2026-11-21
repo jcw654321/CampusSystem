@@ -98,6 +98,20 @@ bool parseScore(const string &text, float &score)
     return end != text.c_str() && *end == '\0' && score >= 0 && score <= 100;
 }
 
+void saveStudentChanges(Student &student, const Student &updatedStudent,
+                        const SubjectManager &subjectManager,
+                        const string &successMessage, const string &failureMessage)
+{
+    if (!subjectManager.saveSubjectsToFile(updatedStudent))
+    {
+        showText(failureMessage);
+        return;
+    }
+
+    student = updatedStudent;
+    showText(successMessage);
+}
+
 void drawCoursePage(const Student &student)
 {
     cleardevice();
@@ -174,8 +188,16 @@ void handleCourseAction(int action, Student &student, SubjectManager &subjectMan
             return;
         }
 
-        subjectManager.addSubject(student, subject(name, id, teacher, score));
-        showText("课程已添加。");
+        if (subjectManager.hasSubject(student, id))
+        {
+            showText("该学生已存在此课程编号。");
+            return;
+        }
+
+        Student updatedStudent = student;
+        subjectManager.addSubject(updatedStudent, subject(name, id, teacher, score));
+        saveStudentChanges(student, updatedStudent, subjectManager,
+                           "课程已添加并保存。", "保存课程失败，未更改学生课程。");
     }
     else if (action == 2)
     {
@@ -183,8 +205,16 @@ void handleCourseAction(int action, Student &student, SubjectManager &subjectMan
         if (!inputText(L"请输入要删除的课程编号", id))
             return;
 
-        subjectManager.removeSubject(student, id);
-        showText("已执行删除。");
+        if (!subjectManager.hasSubject(student, id))
+        {
+            showText("该学生未选修此课程。");
+            return;
+        }
+
+        Student updatedStudent = student;
+        subjectManager.removeSubject(updatedStudent, id);
+        saveStudentChanges(student, updatedStudent, subjectManager,
+                           "课程已删除并保存。", "保存课程失败，未更改学生课程。");
     }
     else if (action == 3)
     {
@@ -200,8 +230,16 @@ void handleCourseAction(int action, Student &student, SubjectManager &subjectMan
             return;
         }
 
-        subjectManager.updateScore(student, id, score);
-        showText("已执行成绩更新。");
+        if (!subjectManager.hasSubject(student, id))
+        {
+            showText("该学生未选修此课程。");
+            return;
+        }
+
+        Student updatedStudent = student;
+        subjectManager.updateScore(updatedStudent, id, score);
+        saveStudentChanges(student, updatedStudent, subjectManager,
+                           "成绩已更新并保存。", "保存成绩失败，未更改学生课程。");
     }
 }
 }

@@ -25,6 +25,7 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    ..\student_manage_system\src\subject_manager.cpp ^
    ..\student_manage_system\src\fileoperate.cpp ^
    ..\src\user.cpp ^
+   ..\src\user_manager.cpp ^
    /Fo"build\\" /Fd"build\vc140.pdb" /Fe"build\gui.exe" ^
    /link "D:\Visual Studio\VC\Auxiliary\Build\vcvars64.bat" user32.lib gdi32.lib winmm.lib shell32.lib
 

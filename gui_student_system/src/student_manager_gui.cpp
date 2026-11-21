@@ -191,6 +191,18 @@ namespace
         }
     }
 
+    bool inputOptionalText(const wchar_t *prompt, string &value)
+    {
+        wchar_t buffer[256] = {};
+        if (!InputBox(buffer, 256, prompt, L"学生管理"))
+            return false;
+
+        string entered = trimWhitespace(toString(wstring(buffer)));
+        if (!entered.empty())
+            value = entered;
+        return true;
+    }
+
     void showText(const string &text)
     {
         wstring wide = toWstring(text);
@@ -306,26 +318,25 @@ namespace
             }
 
             Student updatedStudent = students[index];
-            string value;
-            vector<string> fields;
-            if (!inputFields(
-                    L"请按顺序输入8项，以空格分隔：用户ID 姓名 性别 邮箱 密码 专业 学号 班级",
-                    8,
-                    fields))
-            {
+            string userId = updatedStudent.getUserid();
+            string name = updatedStudent.getName();
+            string sex = updatedStudent.getSex();
+            string email = updatedStudent.getEmail();
+            string password = updatedStudent.getPassword();
+            string major = updatedStudent.getMajor();
+            string studentId = updatedStudent.getStudentId();
+            string className = updatedStudent.getClassName();
+            if (!inputOptionalText(L"用户ID（留空保持不变）", userId) ||
+                !inputOptionalText(L"姓名（留空保持不变）", name) ||
+                !inputOptionalText(L"性别（留空保持不变）", sex) ||
+                !inputOptionalText(L"邮箱（留空保持不变）", email) ||
+                !inputOptionalText(L"密码（留空保持不变）", password) ||
+                !inputOptionalText(L"专业（留空保持不变）", major) ||
+                !inputOptionalText(L"学号（留空保持不变）", studentId) ||
+                !inputOptionalText(L"班级（留空保持不变）", className))
                 return;
-            }
 
-            string userId = fields[0];
-            string name = fields[1];
-            string sex = fields[2];
-            string email = fields[3];
-            string password = fields[4];
-            string major = fields[5];
-            string id2 = fields[6];
-            string className = fields[7];
-
-            updatedStudent = Student(name, email, userId, password, major, id2, className);
+            updatedStudent = Student(name, email, userId, password, major, studentId, className);
             updatedStudent.setSex(sex);
 
             if (studentManager.updateStudent(students, updatedStudent))
@@ -362,7 +373,7 @@ namespace
                 return;
 
             vector<const Student *> matched =
-                subjectManager.findByCourse(students, courseId);
+                subjectManager.findBysubject(students, courseId);
 
             ostringstream result;
             for (const Student *student : matched)

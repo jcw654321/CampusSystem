@@ -72,7 +72,13 @@
             "label": "cl: build gui (MSVC x64)",
             "type": "shell",
             "command": "${workspaceFolder}\\gui_library_system\\build_gui.cmd",
-            "options": { "cwd": "${workspaceFolder}\\gui_library_system" },
+            "options": {
+                "cwd": "${workspaceFolder}\\gui_library_system",
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
             "problemMatcher": [ "$msCompile" ],
             "group": { "kind": "build", "isDefault": true },
             "presentation": { "reveal": "always", "panel": "shared", "clear": true },

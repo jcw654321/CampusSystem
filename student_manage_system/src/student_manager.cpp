@@ -1,5 +1,7 @@
 #include "student_manager.h"
 #include "fileoperate.h"
+#include "user_manager.h"
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 using namespace std;
@@ -63,14 +65,38 @@ bool StudentManager::saveStudentsToFile(const vector<Student>& students) const
 
 bool StudentManager::addStudent(vector<Student>& students, const Student& student) {
     students.push_back(student);
-    return saveStudentsToFile(students);
+    if (!saveStudentsToFile(students))
+        return false;
+
+    UserManager userManager("..\\data\\user.csv");
+    return userManager.SaveUser(student);
 }
 
 bool StudentManager::removeStudent(vector<Student>& students, const string& studentId) {
     for (auto it = students.begin(); it != students.end(); ++it) {
         if (it->getStudentId() == studentId) {
+            const filesystem::path courseFileName(studentId + ".csv");
+            if (studentId.empty() || courseFileName.has_parent_path() ||
+                courseFileName.has_root_name())
+                return false;
+
+            const string userid = it->getUserid();
             students.erase(it);
-            return saveStudentsToFile(students);
+            if (!saveStudentsToFile(students))
+                return false;
+
+            UserManager userManager("..\\data\\user.csv");
+            const bool userDeleted = userManager.DeleteUser(userid);
+
+            const filesystem::path courseFile =
+                filesystem::path(".\\data\\subject_data") / courseFileName;
+            error_code error;
+            filesystem::remove(courseFile, error);
+            if (error)
+                cerr << "Failed to remove course file " << courseFile.string()
+                     << ": " << error.message() << '\n';
+
+            return userDeleted && !error;
         }
     }
     return false;
@@ -79,13 +105,19 @@ bool StudentManager::removeStudent(vector<Student>& students, const string& stud
 bool StudentManager::updateStudent(vector<Student>& students, const Student& student) {
     for (auto& current : students) {
         if (current.getStudentId() == student.getStudentId()) {
+            const string previousUserid = current.getUserid();
             current.setName(student.getName());
             current.setEmail(student.getEmail());
             current.setPassword(student.getPassword());
             current.setMajor(student.getMajor());
             current.setClassName(student.getClassName());
             current.setSex(student.getSex());
-            return saveStudentsToFile(students);
+            current.setUserid(student.getUserid());
+            if (!saveStudentsToFile(students))
+                return false;
+
+            UserManager userManager("..\\data\\user.csv");
+            return userManager.SaveUser(current, previousUserid);
         }
     }
     return false;

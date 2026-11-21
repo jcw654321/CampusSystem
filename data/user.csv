@@ -1,5 +1,4 @@
 ﻿用户ID,用户名,性别,邮箱,密码
-U0001,张伟,男,user0001@example.com,DemoOnly0001!
 U0002,张芳,女,user0002@example.com,DemoOnly0002!
 U0003,张娜,男,user0003@example.com,DemoOnly0003!
 U0004,张敏,女,user0004@example.com,DemoOnly0004!
@@ -52,5 +51,4 @@ U0050,陈勇,女,user0050@example.com,DemoOnly0050!
 S001,张杰,男,user0051@example.com,DemoOnly0051!
 B001,张雨,女,user0052@example.com,DemoOnly0052!
 L001,张烜,男,user0053@example.com,DemoOnly0053!
-
-
+U0001,张伟,男,user0001@example.com,DemoOnly0001!

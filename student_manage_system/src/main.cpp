@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -17,6 +18,12 @@ string input(const string& prompt) {
     if (!getline(cin, value))
         throw InputClosed{};
     return value;
+}
+
+//留空时保持不变
+string inputOrCurrent(const string& prompt, const string& currentValue) {
+    const string value = input(prompt);
+    return value.empty() ? currentValue : value;
 }
 
 //查找学生并返回学生类型指针
@@ -98,8 +105,7 @@ void managesubjects(vector<Student>& students,
 
             const string scoreText = input("成绩 (0-100，留空表示未录入): ");
             float score = -1.0f;
-            if (!scoreText.empty() &&
-                !SubjectManager::parseScore(scoreText, score))
+            if (!scoreText.empty() &&!SubjectManager::parseScore(scoreText, score))
             {
                 cout << "成绩格式无效，必须是 0 到 100 之间的数字。\n";
                 break;
@@ -231,15 +237,17 @@ int runApplication() {
         //4. 修改学生
             const string id = input("请输入要修改的学号: ");
 
-            if (findStudent(students, id) == nullptr)
+            Student* currentStudent = findStudent(students, id);
+            if (currentStudent == nullptr)
                 break;
-            const string userId = input("用户ID: ");
-            const string name = input("姓名: ");
-            const string sex = input("性别: ");
-            const string email = input("邮箱: ");
-            const string password = input("密码: ");
-            const string major = input("专业: ");
-            const string className = input("班级: ");
+
+            const string userId = inputOrCurrent("用户ID（留空保持不变）: ", currentStudent->getUserid());
+            const string name = inputOrCurrent("姓名（留空保持不变）: ", currentStudent->getName());
+            const string sex = inputOrCurrent("性别（留空保持不变）: ", currentStudent->getSex());
+            const string email = inputOrCurrent("邮箱（留空保持不变）: ", currentStudent->getEmail());
+            const string password = inputOrCurrent("密码（留空保持不变）: ", currentStudent->getPassword());
+            const string major = inputOrCurrent("专业（留空保持不变）: ", currentStudent->getMajor());
+            const string className = inputOrCurrent("班级（留空保持不变）: ", currentStudent->getClassName());
              
             Student updatedStudent(name, email, userId, password, major, id, className, sex);
             if (manager.updateStudent(students, updatedStudent))
@@ -261,14 +269,52 @@ int runApplication() {
             break;
         }
         //6. 按平均成绩排名
-        case '6':
-            subjectManager.showScoreRanking(students);
+        case '6': {
+            const vector<StudentAverage> ranked =
+                subjectManager.rankByAverageScore(students);
+            if (ranked.empty()) {
+                cout << "目前没有可参与排名的成绩。\n";
+                break;
+            }
+
+            cout << fixed << setprecision(2);
+            for (size_t i = 0; i < ranked.size(); ++i) {
+                const Student& student = *ranked[i].student;
+                cout << i + 1 << ". " << student.getName()
+                     << " (学号: " << student.getStudentId()
+                     << "), 平均成绩: " << ranked[i].average << '\n';
+            }
             break;
-        case '7':
+        }
+        case '7': {
         //7. 按课程筛选学生
-            subjectManager.filterStudentsBysubject(
-                students, input("请输入课程ID: "));
+            const string subjectId = input("请输入课程ID: ");
+            const vector<const Student*> matched =
+                subjectManager.findBysubject(students, subjectId);
+            if (matched.empty()) {
+                cout << "没有学生选修该课程。\n";
+                break;
+            }
+
+            for (const Student* student : matched) {
+                for (const subject& course : student->getSubjects()) {
+                    if (course.getSubjectId() == subjectId) {
+                        cout << "学生: " << student->getName()
+                             << " (学号: " << student->getStudentId() << ")"
+                             << ", 课程: " << course.getName()
+                             << ", 教师: " << course.getTeacherName()
+                             << ", 成绩: ";
+                        if (course.getScore() >= 0.0f)
+                            cout << course.getScore();
+                        else
+                            cout << "未录入";
+                        cout << '\n';
+                        break;
+                    }
+                }
+            }
             break;
+        }
         case '8':
         //8. 课程管理
             managesubjects(students, subjectManager);
@@ -285,5 +331,5 @@ int runApplication() {
 }
 
 int main() {
-     runApplication();
+    return runApplication();
 }

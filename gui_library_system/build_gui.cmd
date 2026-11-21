@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 if not exist build mkdir build
 
-call "D:\c++\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+call "D:\Visual Studio\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] failed to run vcvars64.bat
     exit /b 1
@@ -15,7 +15,7 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    /I"..\include" ^
    /I"..\gui_student_system\include" ^
    /I"..\student_manage_system\include" ^
-   /I"D:\c++\VC\Auxiliary\VS\include" ^
+   /I"D:\Visual Studio\VC\Auxiliary\VS\include" ^
    gui_main.cpp ^
    ..\library_manage_system\src\book.cpp ^
    ..\library_manage_system\src\dateutils.cpp ^
@@ -32,7 +32,7 @@ cl /nologo /EHsc /std:c++17 /utf-8 /Zi /W3 /MDd /wd4828 ^
    ..\src\user.cpp ^
    ..\src\user_manager.cpp ^
    /Fo"build\\" /Fe"build\gui.exe" ^
-   /link "D:\c++\VC\Auxiliary\VS\lib\x64\EasyXw.lib" user32.lib gdi32.lib winmm.lib shell32.lib
+   /link "D:\Visual Studio\VC\Auxiliary\VS\lib\x64\EasyXw.lib" user32.lib gdi32.lib winmm.lib shell32.lib
 
 if errorlevel 1 (
     echo.
