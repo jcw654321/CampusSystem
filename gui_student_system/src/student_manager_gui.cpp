@@ -1,7 +1,6 @@
 #include <graphics.h>
 #include <windows.h>
 #include <string>
-#include "fileoperate.h"
 #include "student_manager.h"
 #include "subject_manager.h"
 #include "student_manager_gui.h"
@@ -122,6 +121,7 @@ namespace
         }
     }
 
+    // 检测鼠标点击的按钮
     int hitStudentButton(int x, int y)
     {
         const int startY = 170;
@@ -172,25 +172,22 @@ namespace
         FlushBatchDraw(); // 整页画完后一次性显示
     }
 
+    // 输入文本
     bool inputText(const wchar_t *prompt, string &value)
     {
-        while (true)
-        {
-            wchar_t buffer[256] = {};
-            if (!InputBox(buffer, 256, prompt, L"学生管理"))
-                return false;
+        wchar_t buffer[256] = {};
+        if (!InputBox(buffer, 256, prompt, L"学生管理"))
+            return false;
 
-            value = trimWhitespace(toString(wstring(buffer)));
-            if (!value.empty())
-                return true;
-            else
-            {
-                showText("输入不能为空，请重新输入。");
-                return false;
-            }
-        }
+        value = trimWhitespace(toString(wstring(buffer)));
+        if (!value.empty())
+            return true;
+
+        showText("输入不能为空，请重新输入。");
+        return false;
     }
 
+    // 输入可选文本
     bool inputOptionalText(const wchar_t *prompt, string &value)
     {
         wchar_t buffer[256] = {};
@@ -209,43 +206,35 @@ namespace
         MessageBoxW(GetHWnd(), wide.c_str(), L"提示", MB_OK);
     }
 
+    // 输入多项文本
     bool inputFields(const wchar_t *prompt, size_t expectedCount,
                      vector<string> &fields)
     {
-        while (true)
+        wchar_t buffer[512] = {};
+        if (!InputBox(buffer, 512, prompt, L"学生管理"))
+            return false;
+
+        istringstream input(toString(wstring(buffer)));
+        vector<string> values;
+        string value;
+        while (input >> value)
+            values.push_back(value);
+
+        if (values.size() != expectedCount)
         {
-            wchar_t buffer[512] = {};
-            if (!InputBox(buffer, 512, prompt, L"学生管理"))
-                return false;
-
-            istringstream input(toString(wstring(buffer)));
-            vector<string> values;
-            string value;
-
-            while (input >> value)
-                values.push_back(value);
-
-            if (values.size() != expectedCount)
-            {
-                showText("输入项数量不正确或包含空项，请按提示重新输入。");
-                return false;
-            }
-
-            fields.swap(values);
-            return true;
+            showText("输入项数量不正确或包含空项，请按提示重新输入。");
+            return false;
         }
-    }
 
-    bool parseScore(const string &text, float &score)
-    {
-        char *end = nullptr;
-        score = strtof(text.c_str(), &end);
-        return end != text.c_str() && *end == '\0' && score >= 0 && score <= 100;
+        fields.swap(values);
+        return true;
     }
 
     void handleStudentAction(int action)
     {
-        if (action == 0) // 获取所有学生
+        switch (action)
+        {
+        case 0:
         {
             ostringstream result;
             for (const Student &s : students)
@@ -253,8 +242,9 @@ namespace
                        << "  " << s.getClassName() << '\n';
 
             showText(result.str().empty() ? "暂无学生数据。" : result.str());
+            break;
         }
-        else if (action == 1) // 添加学生
+        case 1:
         {
             vector<string> fields;
             if (!inputFields(
@@ -280,8 +270,6 @@ namespace
                 return;
             }
 
-            Student s(name, email, userId, password, major, id, className);
-            s.setSex(sex);
             DataRecord record{
                 id,
                 {userId, name, sex, email, password, major, id, className}
@@ -293,8 +281,9 @@ namespace
             }
             else
                 showText("学生已添加，但保存文件失败。");
+            break;
         }
-        else if (action == 2) // 删除学生
+        case 2:
         {
             string id;
             if (!inputText(L"请输入要删除的学号", id))
@@ -313,8 +302,9 @@ namespace
             }
             else
                 showText("学生已删除，但保存文件失败。");
+            break;
         }
-        else if (action == 3) // 更新学生
+        case 3:
         {
             string id;
             if (!inputText(L"请输入要更新的学号", id))
@@ -360,8 +350,9 @@ namespace
             }
             else
                 showText("学生信息已更新，但保存文件失败。");
+            break;
         }
-        else if (action == 4) // 查找学生
+        case 4:
         {
             string id;
             if (!inputText(L"请输入学号", id))
@@ -382,8 +373,9 @@ namespace
                    << "\n班级：" << s.getClassName()
                    << "\n邮箱：" << s.getEmail();
             showText(result.str());
+            break;
         }
-        else if (action == 5) // 按课程查询学生
+        case 5:
         {
             string courseId;
             if (!inputText(L"请输入课程ID", courseId))
@@ -404,8 +396,9 @@ namespace
             showText(result.str().empty()
                          ? "没有学生选修这门课程。"
                          : result.str());
+            break;
         }
-        else if (action == 6) // 按平均成绩排名
+        case 6:
         {
             vector<StudentAverage> ranked =
                 subjectManager.rankByAverageScore(students);
@@ -423,6 +416,8 @@ namespace
             showText(result.str().empty()
                          ? "暂无已录入成绩的学生。"
                          : result.str());
+            break;
+        }
         }
     }
 
@@ -432,18 +427,33 @@ void runStudentManagerGui()
 {
     std::filesystem::path oldDir = std::filesystem::current_path();
 
-    if (!std::filesystem::exists("data/student_data/student_data.csv"))
+    std::filesystem::path dataDir = "data/student_data/student_data.csv";
+    if (!std::filesystem::exists(dataDir))
     {
-        if (std::filesystem::exists("../student_manage_system/data/student_data/student_data.csv"))
-            std::filesystem::current_path("../student_manage_system");
-        else if (std::filesystem::exists("student_manage_system/data/student_data/student_data.csv"))
-            std::filesystem::current_path("student_manage_system");
+        for (const std::filesystem::path &candidate :
+             {"../student_manage_system", "student_manage_system"})
+        {
+            if (std::filesystem::exists(candidate /
+                                        "data/student_data/student_data.csv"))
+            {
+                std::filesystem::current_path(candidate);
+                break;
+            }
+        }
     }
 
-    Manager* studentManagerBase = &studentManager;
-    Manager* subjectManagerBase = &subjectManager;
-    studentManagerBase->loadRecords();
-    subjectManagerBase->loadRecords();
+    if (!std::filesystem::exists(
+            "data/student_data/student_data.csv"))
+    {
+        std::filesystem::current_path(oldDir);
+        showText("未找到学生数据目录，课程信息无法加载。");
+        return;
+    }
+
+    if (!studentManager.loadRecords())
+        showText("学生数据加载失败。");
+    if (!subjectManager.loadRecords())
+        showText("课程数据加载失败。");
 
     students = studentManager.getStudents();
     subjectManager.loadSubjectsFromfile(students);

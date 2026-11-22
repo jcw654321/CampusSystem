@@ -114,10 +114,26 @@ void runStudentGui(const string& userId)
     // 从图书 GUI 启动时工作目录可能是 library_manage_system，临时切过去。
     std::filesystem::path oldDir = std::filesystem::current_path();
 
-    if (!std::filesystem::exists("data/student_data/student_data.csv") &&
-        std::filesystem::exists("../student_manage_system/data/student_data/student_data.csv"))
+    if (!std::filesystem::exists("data/student_data/student_data.csv"))
     {
-        std::filesystem::current_path("../student_manage_system");
+        for (const std::filesystem::path &candidate :
+             {"../student_manage_system", "student_manage_system"})
+        {
+            if (std::filesystem::exists(candidate /
+                                        "data/student_data/student_data.csv"))
+            {
+                std::filesystem::current_path(candidate);
+                break;
+            }
+        }
+    }
+
+    if (!std::filesystem::exists("data/student_data/student_data.csv"))
+    {
+        std::filesystem::current_path(oldDir);
+        MessageBoxW(GetHWnd(), L"未找到学生数据目录，课程信息无法加载。",
+                    L"提示", MB_OK);
+        return;
     }
 
     StudentManager manager("管理员", "", "admin", "");
