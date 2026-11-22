@@ -524,25 +524,16 @@ int main()
 
                     else if (PtInRect(&bankR, p))
                     {
-                        if (cUser == nullptr)//由于银行管理系统读取文件不是同一个,所以可能存在用户不存在的现象(没开户)
+                        if (cUser == nullptr)
                         {
                             MessageBoxW(GetHWnd(), L"当前用户不存在", L"提示", MB_OK);
                         }
-                        else if(role==Role::bankm)
+                        else
                         {
-                            runBankGui(*cUser, true, "../bank_manage_system");
-                        
-                            page=Page::Select;
-                            drawAll();
-                        }
-                        else if(role == Role::stu)
-                        {
-                            runBankGui(*cUser, false, "../bank_manage_system");
-                            
+                            // 银行按用户号前缀区分管理员；其余角色统一进入学生银行界面。
+                            runBankGui(*cUser, "../bank_manage_system/data");
                             page = Page::Select;
                             drawAll();
-
-
                         }
                     }
                 }

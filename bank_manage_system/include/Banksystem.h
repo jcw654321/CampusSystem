@@ -13,7 +13,7 @@ class Banksystem : public User
 {
 public:
     Banksystem(const User& currentUser, bool isAdministrator,
-               const std::filesystem::path& dataDirectory = ".");
+               const std::filesystem::path& dataDirectory = "data");
 
     bool isAdministrator() const { return administrator; }
     const std::filesystem::path& getDataDirectory() const { return dataDirectory; }

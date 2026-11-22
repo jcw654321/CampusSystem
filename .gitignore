@@ -67,8 +67,7 @@ debug_output/
 *.test.exe
 
 # 银行系统运行时数据（不入库）
-bank_manage_system/accounts.txt
-bank_manage_system/transactions.txt
+bank_manage_system/data/accounts.txt
 
 # 第三方本地依赖（不入库）
 third_party/

@@ -555,7 +555,8 @@ bool canLeaveBank()
 bool loadBankData()
 {
     error_code ec;
-    if (!filesystem::is_directory(bank->getDataDirectory(), ec) || ec)
+    filesystem::create_directories(bank->getDataDirectory(), ec);
+    if (ec || !filesystem::is_directory(bank->getDataDirectory(), ec) || ec)
     {
         return false;
     }
@@ -595,9 +596,11 @@ void selectAccountAt(int y, const RECT &tableRect)
 
 using namespace bank_gui;
 
-void runBankGui(const User& currentUser, bool isAdministrator,
-                const filesystem::path& dataDirectory)
+void runBankGui(const User& currentUser, const filesystem::path& dataDirectory)
 {
+    // 银行角色只由用户号前缀决定：B 为管理员，其余已登录用户均为学生。
+    const string userId = currentUser.getUserid();
+    const bool isAdministrator = !userId.empty() && userId.front() == 'B';
     // 每次进入重新加载数据；窗口和双缓冲仍由主系统管理。
     try
     {

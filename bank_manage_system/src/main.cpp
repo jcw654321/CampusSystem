@@ -34,7 +34,13 @@ int main(int argc, char* argv[])
     Banksystem bankSystem(testUser, administrator);
     cout << (bankSystem.isAdministrator() ? "管理员测试模式" : "学生测试模式") << endl;
     error_code ec;
-    bool hasFile = filesystem::exists("accounts.txt", ec);
+    filesystem::create_directories(bankSystem.getDataDirectory(), ec);
+    if (ec)
+    {
+        cout << "无法创建银行数据目录：" << ec.message() << endl;
+        return 1;
+    }
+    bool hasFile = filesystem::exists(bankSystem.getDataDirectory() / "accounts.txt", ec);
     if (ec)
     {
         cout << "无法检查账户文件：" << ec.message() << endl;

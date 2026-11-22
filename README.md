@@ -115,7 +115,7 @@ GUI 银行入口位于 `gui_bank_system/gui_bank.cpp`。
 
 - 储蓄账户和信用账户
 - 储蓄、取款、转账
-- 查询余额和流水
+- 查询余额
 - 管理员开户并查看账户
 - 学生只能操作本人账户
 - 金额使用整数“分”，避免浮点舍入
@@ -123,15 +123,14 @@ GUI 银行入口位于 `gui_bank_system/gui_bank.cpp`。
 银行数据默认位于：
 
 ```text
-bank_manage_system/accounts.txt
-bank_manage_system/transactions.txt
+bank_manage_system/data/accounts.txt
 ```
 
-账户和流水分开保存：
+账户文件示例（金额单位为分）：
 
 ```text
-SAVING A001 S001 1250 0.05
-CREDIT A002 S002 -500 10000
+SAVING SU001 U001 1250
+CREDIT CU002 U002 -500 100000
 ```
 
 两个文件分别加载和保存。账户操作只修改内存，保存成功后再更新界面状态。
@@ -168,6 +167,7 @@ CampusSystem/
 └── bank_manage_system/
     ├── include/
     ├── src/
+    ├── data/
     └── build_bank.cmd
 ```
 
@@ -208,7 +208,7 @@ data/user.csv
 data/library.txt
 ../library_manage_system/data/library.txt
 ../student_manage_system/data/student_data/student_data.csv
-../bank_manage_system/
+../bank_manage_system/data/
 ```
 
 学生和图书 GUI 会尝试切换到可找到数据的目录，并在退出子页面后恢复原工作目录。
@@ -218,7 +218,7 @@ data/library.txt
 - `data/user.csv` 存在且格式正确
 - 图书数据文件存在
 - 学生和课程 CSV 数据存在
-- 银行模块的 `accounts.txt` 和 `transactions.txt` 成套存在
+- 银行账户文件位于 `bank_manage_system/data/accounts.txt`；文件不存在时会以空账户数据启动
 
 ## 数据一致性与错误处理
 
@@ -227,7 +227,7 @@ data/library.txt
 - 同一学生下课程编号不能重复
 - 图书编号不能重复
 - 借书检查未归还数量、图书库存和学生借阅上限
-- 银行账户和流水加载时会校验格式和重复编号
+- 银行账户加载时会校验格式和重复账号
 - 银行金额按整数分保存，拒绝负数、零、非两位以内小数和溢出
 - 文件加载或保存失败时应提示失败；不能静默覆盖原数据
 
