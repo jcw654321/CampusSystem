@@ -5,7 +5,6 @@
 #include <limits>
 #include <string>
 #include <vector>
-#include <stdexcept>
 
 #define NOMINMAX
 #include <graphics.h>
@@ -602,15 +601,7 @@ void runBankGui(const User& currentUser, const filesystem::path& dataDirectory)
     const string userId = currentUser.getUserid();
     const bool isAdministrator = !userId.empty() && userId.front() == 'B';
     // 每次进入重新加载数据；窗口和双缓冲仍由主系统管理。
-    try
-    {
-        bank = make_unique<Banksystem>(currentUser, isAdministrator, dataDirectory);
-    }
-    catch (const invalid_argument&)
-    {
-        MessageBoxW(GetHWnd(), L"银行身份信息不完整，无法进入。", L"无法进入", MB_OK);
-        return;
-    }
+    bank = make_unique<Banksystem>(currentUser, isAdministrator, dataDirectory);
     // 银行界面可能被反复进入；每次都重置会话状态，避免沿用上次的筛选或选中项。
     visibleAccounts.clear();
     hasUnsavedChanges = false;

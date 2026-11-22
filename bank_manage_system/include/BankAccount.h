@@ -15,7 +15,7 @@ class BankAccount
     std::string getAccountId() const;
     std::string getOwnerUserId() const;
     std::int64_t getBalance() const;
-    bool isClosed() const { return closed; }
+    bool isClosed() const;
     bool deposit(std::int64_t amount);
     virtual bool withdraw(std::int64_t amount);
     virtual void writeTo(std::ostream &out) const = 0;

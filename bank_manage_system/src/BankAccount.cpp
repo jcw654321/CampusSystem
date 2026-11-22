@@ -25,6 +25,11 @@ int64_t BankAccount::getBalance() const
     return balance;
 }
 
+bool BankAccount::isClosed() const
+{
+    return closed;
+}
+
 bool BankAccount::deposit(int64_t amount)
 {
     if (closed || amount <= 0)

@@ -3,7 +3,6 @@
 #include "CreditAccount.h"
 #include <fstream>
 #include <sstream>
-#include <system_error>
 #include <utility>
 
 using namespace std;
@@ -16,12 +15,7 @@ using namespace std;
 // 银行只保存账户数据，不保存交易记录。
 bool Banksystem::saveAccounts() const
 {
-    error_code ec;
-    filesystem::create_directories(dataDirectory, ec);
-    if (ec)
-    {
-        return false;
-    }
+    filesystem::create_directories(dataDirectory);
 
     ofstream out(dataDirectory / "accounts.txt");
     if (!out)

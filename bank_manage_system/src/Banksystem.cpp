@@ -3,7 +3,6 @@
 #include "CreditAccount.h"
 #include <fstream>
 #include <limits>
-#include <stdexcept>
 
 using namespace std;
 
@@ -14,9 +13,6 @@ Banksystem::Banksystem(const User& currentUser, bool isAdministrator,
     : User(currentUser), administrator(isAdministrator),
       dataDirectory(filesystem::absolute(dataDirectory))
 {
-    // 不验证密码，只检查调用方是否给出了完整的已登录身份。
-    if (getUserid().empty())
-        throw invalid_argument("银行需要有效的登录用户身份。");
 }
 
 BankAccount* Banksystem::findAccountInternal(const string& accountId) const
@@ -68,29 +64,28 @@ vector<const BankAccount*> Banksystem::getAccounts() const
 
 bool Banksystem::userExists(const string& userId) const
 {
-    if (userId.empty() || userId.find_first_of(", \t\r\n") != string::npos)
+    if (userId.empty())
         return false;
 
-    // 兼容不同启动目录：从银行数据目录及其上级目录查找用户数据。
-    // 找到第一份可读的 user.csv 后即以它为准，避免不同位置的数据互相覆盖判断。
-    vector<filesystem::path> roots = {
-        dataDirectory, dataDirectory.parent_path(), dataDirectory.parent_path().parent_path()};
-    for (const auto& root : roots)
+    ifstream in("data/user.csv");
+    if (!in)
+        in.open("../data/user.csv");
+    if (!in)
+        return false;
+
+    string line;
+    getline(in, line);
+    while (getline(in, line))
     {
-        ifstream in(root / "data" / "user.csv");
-        if (!in) continue;
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
 
-        string line;
-        getline(in, line);
-        while (getline(in, line))
-        {
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            const auto separator = line.find(',');
-            if (separator != string::npos && line.substr(0, separator) == userId)
-                return true;
-        }
-        return false;
+        const auto separator = line.find(',');
+        if (separator != string::npos &&
+            line.substr(0, separator) == userId)
+            return true;
     }
+
     return false;
 }
 
@@ -106,29 +101,38 @@ string Banksystem::openCreditAccount(const string& ownerUserId)
 
 string Banksystem::openAccount(const string& ownerUserId, bool credit)
 {
-    if (!isAdministrator() || !userExists(ownerUserId)) return "";
-    // 按用户号和账户类型检查重复，不能只比较新生成的账号。
+    if (!isAdministrator() || !userExists(ownerUserId))
+        return "";
+
+    string accountId = (credit ? "C" : "S") + ownerUserId;
+
+    // 同一用户不能重复拥有未销户的同类型账户。
     for (const auto& account : accounts)
     {
-        bool sameType = (dynamic_cast<const CreditAccount*>(account.get()) != nullptr) == credit;
-        if (!account->isClosed() && account->getOwnerUserId() == ownerUserId && sameType) return "";
+        bool sameType =
+            (dynamic_cast<const CreditAccount*>(account.get()) != nullptr) == credit;
+        if (!account->isClosed() &&
+            account->getOwnerUserId() == ownerUserId &&
+            sameType)
+            return "";
     }
-    // 账号由账户类型前缀和用户号组成；销户后重开仍复用原账号。
-    string accountId = (credit ? "C" : "S") + ownerUserId;
-    const auto* previous = findAccountInternal(accountId);
-    if (previous && (!previous->isClosed() || previous->getOwnerUserId() != ownerUserId ||
-        (dynamic_cast<const CreditAccount*>(previous) != nullptr) != credit)) return "";
 
     unique_ptr<BankAccount> created;
-    if (credit) created = make_unique<CreditAccount>(accountId, ownerUserId);
-    else created = make_unique<SavingAccount>(accountId, ownerUserId);
-    // 重新开户沿用相同账号，不产生第二个有效同类账户。
+    if (credit)
+        created = make_unique<CreditAccount>(accountId, ownerUserId);
+    else
+        created = make_unique<SavingAccount>(accountId, ownerUserId);
+
+    // 已销户账户重新开户时复用原账号。
     for (auto& account : accounts)
+    {
         if (account->getAccountId() == accountId)
         {
             account = move(created);
             return accountId;
         }
+    }
+
     accounts.push_back(move(created));
     return accountId;
 }

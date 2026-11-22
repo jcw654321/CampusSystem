@@ -31,6 +31,11 @@ int main(int argc, char* argv[])
         return 1;
     }
     User testUser("银行控制台测试", "", userId, "");
+    if (testUser.getUserid().empty())
+    {
+        cout << "银行需要有效的登录用户身份。" << endl;
+        return 1;
+    }
     Banksystem bankSystem(testUser, administrator);
     cout << (bankSystem.isAdministrator() ? "管理员测试模式" : "学生测试模式") << endl;
     error_code ec;
