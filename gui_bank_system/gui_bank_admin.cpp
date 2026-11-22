@@ -13,6 +13,7 @@ const std::vector<ActionButton<AdminBankAction>> AdminButtons = {
     {AdminBankAction::Close, L"销户"},
     {AdminBankAction::QueryBalance, L"查询余额"}};
 
+// 管理员可以随时开户；销户和余额查询需要先选中一条账户。
 void drawAdminActions()
 {
     for (int i = 0; i < static_cast<int>(AdminButtons.size()); ++i)
@@ -28,6 +29,7 @@ void drawAdminActions()
 
 void drawAdminBankPage()
 {
+    // 管理员页面使用共用表格，再加搜索框和管理员专属按钮。
     drawBankPageFrame(L"银行管理");
     drawButton(680, 125, 140, L"搜索账户");
     drawAdminActions();
@@ -44,7 +46,7 @@ void handleAdminAction(AdminBankAction action)
         setStatusMessage(L"请先点击表格选择账户。");
         return;
     }
-    // 查询余额不修改账户文件；其他操作先解决上次未保存的数据。
+    // 查询只是读取，不需要保存；其他操作开始前先补存上次失败的数据。
     if (action != AdminBankAction::QueryBalance && !retryPendingSave())
         return;
 
@@ -77,7 +79,7 @@ void runAdminBankFrontend()
     HWND window = GetHWnd();
     ExMessage message;
 
-    // 管理员只在本循环处理自己的按钮、搜索和账户列表事件。
+    // 循环等待鼠标事件：返回、选账户、搜索、翻页或点击业务按钮。
     while (IsWindow(window))
     {
         if (!peekmessage(&message, EM_MOUSE))
@@ -92,6 +94,7 @@ void runAdminBankFrontend()
         }
         else if (message.message == WM_LBUTTONDOWN)
         {
+            // 先判断点击的位置属于哪个区域，再执行对应操作。
             POINT point = {message.x, message.y};
             if (PtInRect(&backRect, point))
             {

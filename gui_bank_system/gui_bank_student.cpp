@@ -13,6 +13,7 @@ const std::vector<ActionButton<StudentBankAction>> StudentButtons = {
     {StudentBankAction::Transfer, L"转账"},
     {StudentBankAction::QueryBalance, L"查询余额"}};
 
+// 学生操作按钮只有选中账户后才可用。
 void drawStudentActions()
 {
     for (int i = 0; i < static_cast<int>(StudentButtons.size()); ++i)
@@ -24,6 +25,7 @@ void drawStudentActions()
 
 void drawStudentBankPage()
 {
+    // 学生页面显示本人账户列表和存取款、转账、查询按钮。
     drawBankPageFrame(L"我的银行");
     drawStudentActions();
     FlushBatchDraw();
@@ -31,7 +33,7 @@ void drawStudentBankPage()
 
 void handleStudentAction(StudentBankAction action)
 {
-    // 后端检查账户归属和状态；管理员不能通过学生界面代办业务。
+    // 先确认选中的是本人可操作的账户；后端也会再次检查。
     if (!canOperateSelectedAccount())
     {
         setStatusMessage(L"请先选择本人的银行账户。");
@@ -44,7 +46,7 @@ void handleStudentAction(StudentBankAction action)
         showAccountBalance(*account);
         return;
     }
-    // 只读查询不依赖保存；会修改余额的业务必须先重试之前的保存。
+    // 查询余额不改数据；存款、取款和转账会改数据，所以先处理之前的保存失败。
     if (!retryPendingSave())
         return;
 
@@ -60,7 +62,7 @@ void runStudentBankFrontend()
     HWND window = GetHWnd();
     ExMessage message;
 
-    // 学生端不提供搜索，只响应本人账户选择、操作按钮和滚轮翻页。
+    // 循环等待鼠标事件：返回、选本人账户、翻页或点击业务按钮。
     while (IsWindow(window))
     {
         if (!peekmessage(&message, EM_MOUSE))
@@ -75,6 +77,7 @@ void runStudentBankFrontend()
         }
         else if (message.message == WM_LBUTTONDOWN)
         {
+            // 根据点击位置判断用户是在返回、选账户还是执行某项业务。
             POINT point = {message.x, message.y};
             if (PtInRect(&backRect, point))
             {

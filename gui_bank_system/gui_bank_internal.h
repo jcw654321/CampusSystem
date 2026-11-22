@@ -11,9 +11,10 @@
 
 namespace bank_gui
 {
-// 共享前端内部接口，仅供银行 GUI 的共用、管理员和学生实现文件使用。
+// 管理员页面和学生页面共用的设置、操作类型和函数声明。
 constexpr int RowsPerPage = 8;
 
+// 管理员页面上的四种操作。
 enum class AdminBankAction
 {
     OpenSaving,
@@ -22,6 +23,7 @@ enum class AdminBankAction
     QueryBalance
 };
 
+// 普通用户页面上的四种操作。
 enum class StudentBankAction
 {
     Deposit,
@@ -30,13 +32,15 @@ enum class StudentBankAction
     QueryBalance
 };
 
+// 把“实际操作”和“按钮文字”放在一起，方便用同一套代码绘制和处理按钮。
 template <typename Action>
 struct ActionButton
 {
-    Action action;
-    const wchar_t *label;
+    Action action;        // 点击按钮后要执行的操作
+    const wchar_t *label; // 按钮上显示的文字
 };
 
+// 页面绘制、账户列表、输入保存和业务操作的共用函数。
 void drawButton(int x, int y, int width, const wchar_t *label, bool enabled = true);
 void drawBankPageFrame(const wchar_t *title);
 void refreshVisibleRows();
