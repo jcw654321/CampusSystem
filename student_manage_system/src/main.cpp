@@ -54,7 +54,7 @@ Student* selectStudentSubject(vector<Student>& students, SubjectManager& subject
     return student;
 }
 
-//
+//管理课程的函数
 void managesubjects(vector<Student>& students,
                    SubjectManager& subjectManager) {
     while (true) {

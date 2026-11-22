@@ -4,7 +4,8 @@
 #include<iostream>
 #include<algorithm>
 #include<fstream>
-#include <iostream>
+#include <cmath>
+#include <stdexcept>
 using namespace std;
 
 const string student_filepath = ".\\data\\student_data\\student_data.csv";
@@ -245,9 +246,27 @@ void SubjectManager::showStudentsubjects(const Student& student) const
 
 bool SubjectManager::parseScore(const string& text, float& score)
 {
-        size_t parsedLength = 0;
-        score = stof(text, &parsedLength); //把成绩由string转成float
-        return parsedLength == text.size()&&score >= 0.0f && score <= 100.0f;    //必须没有多余的字符且不是非法float且在0-100
+    size_t parsedLength = 0;
+    float parsedScore;
+    try
+    {
+        parsedScore = stof(text, &parsedLength);
+    }
+    catch (const invalid_argument&)
+    {
+        return false;
+    }
+    catch (const out_of_range&)
+    {
+        return false;
+    }
+
+    if (parsedLength != text.size() || !isfinite(parsedScore) ||
+        parsedScore < 0.0f || parsedScore > 100.0f)
+        return false;
+
+    score = parsedScore;
+    return true;
 }
 
 vector<StudentAverage> SubjectManager::rankByAverageScore(const vector<Student>& students) const
