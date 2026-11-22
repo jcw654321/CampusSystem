@@ -147,6 +147,7 @@ wstring toWide(const string &text)
         return L"";
     }
 
+    // 后端和文件使用 UTF-8 字节串，EasyX 控件使用宽字符串。
     int length =
         MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
     wstring result(length, L'\0');
@@ -162,6 +163,7 @@ string toUtf8(const wstring &text)
         return "";
     }
 
+    // 输入框返回宽字符串，传给后端前统一转换成 UTF-8。
     int length = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
                                      nullptr, 0, nullptr, nullptr);
     string result(length, '\0');
@@ -179,6 +181,7 @@ void setStatusMessage(const wstring &text, bool error)
 bool inputText(const wchar_t *prompt, wstring &value)
 {
     wchar_t buffer[128] = {};
+    // 用户取消输入时不修改输出参数，调用方可直接结束当前操作。
     if (!InputBox(buffer, 128, prompt, L"银行管理"))
     {
         return false;
@@ -226,7 +229,7 @@ bool inputAmount(const wchar_t *prompt, int64_t &amount)
     return true;
 }
 
-// 复用后端文件格式；失败时保留内存结果；下次操作或退出时自动重试，成功后才能继续交易。
+// 复用后端文件格式；失败时保留内存结果，修改账户的业务和退出前会重试。
 bool saveBankData()
 {
     bool accountsOk = bank->saveAccounts();
@@ -234,7 +237,7 @@ bool saveBankData()
 
     if (hasUnsavedChanges)
     {
-        setStatusMessage(L"自动保存失败，暂勿关闭程序；下次操作或退出银行时会重试。");
+        setStatusMessage(L"自动保存失败，暂勿离开；下次修改账户或退出银行时会重试。");
     }
     else
     {
@@ -252,6 +255,7 @@ bool retryPendingSave()
 // 四、生成显示列表：账户按关键字筛选。
 void refreshVisibleRows()
 {
+    // 后端先按身份筛出可见账户；此处再按关键字生成显示索引，不改动账户集合。
     visibleAccounts = bank->getAccounts();
     visibleIndices.clear();
     for (size_t i = 0; i < visibleAccounts.size(); ++i)
@@ -276,6 +280,7 @@ void refreshVisibleRows()
 
 void scrollPage(int offset)
 {
+    // 将起始行限制在有效页范围内，避免滚动越过列表首尾。
     int lastPageStart = visibleIndices.empty()
                             ? 0
                             : static_cast<int>((visibleIndices.size() - 1) / RowsPerPage) *
@@ -387,6 +392,7 @@ bool openAccount(bool creditAccount)
 {
     string ownerUserId;
     if (!inputId(L"请输入关联用户号（账号自动生成）", ownerUserId)) return false;
+    // 前端提前给出明确错误；后端开户函数仍会再次校验用户和管理员权限。
     if (!bank->userExists(ownerUserId))
     {
         setStatusMessage(L"未找到该用户，无法开户。");
@@ -417,6 +423,7 @@ bool closeSelectedAccount()
 {
     const auto* account = bank->findAccount(selectedAccountId);
     if (!account) return false;
+    // 提前提示余额不为零的原因；后端仍独立强制执行销户条件。
     if (account->getBalance() != 0)
     {
         setStatusMessage(L"余额必须为 0 才能销户，请先取出余额或还清欠款。");
@@ -450,6 +457,7 @@ bool performTransaction(StudentBankAction type)
     string target;
     if (type == StudentBankAction::Transfer)
     {
+        // 先验证收款账号并展示针对性提示，最终转账仍由后端重新校验。
         if (!inputId(L"请输入收款账号", target))
         {
             return false;
@@ -504,6 +512,7 @@ bool performTransaction(StudentBankAction type)
 
 void finishBankAction(bool changed, bool openingAccount, bool closingAccount)
 {
+    // 取消、校验失败或业务失败都不保存；只有成功改变账户状态才持久化。
     if (!changed)
         return;
 
@@ -528,6 +537,7 @@ void finishBankAction(bool changed, bool openingAccount, bool closingAccount)
 
 bool canLeaveBank()
 {
+    // 退出前补救保存失败的业务结果；失败时留在页面以免静默丢失数据。
     if (!hasUnsavedChanges)
     {
         return true;
@@ -557,6 +567,7 @@ bool loadBankData()
 
     if (!hasAccounts)
     {
+        // 数据目录存在但尚未开户时按空系统启动。
         return true;
     }
 
@@ -565,6 +576,7 @@ bool loadBankData()
 
 void applyAccountSearch(const wstring &keyword)
 {
+    // 搜索会改变可见行，因此清除旧选择，避免误操作被筛掉的账户。
     searchKeyword = keyword;
     selectedAccountId.clear();
     firstVisibleRow = 0;
@@ -573,6 +585,7 @@ void applyAccountSearch(const wstring &keyword)
 
 void selectAccountAt(int y, const RECT &tableRect)
 {
+    // 把鼠标纵坐标换算成当前页对应的列表位置。
     int position = firstVisibleRow + (y - tableRect.top) / 38;
     if (position < static_cast<int>(visibleIndices.size()))
         selectedAccountId = visibleAccounts[visibleIndices[position]]->getAccountId();
@@ -595,6 +608,7 @@ void runBankGui(const User& currentUser, bool isAdministrator,
         MessageBoxW(GetHWnd(), L"银行身份信息不完整，无法进入。", L"无法进入", MB_OK);
         return;
     }
+    // 银行界面可能被反复进入；每次都重置会话状态，避免沿用上次的筛选或选中项。
     visibleAccounts.clear();
     hasUnsavedChanges = false;
     firstVisibleRow = 0;

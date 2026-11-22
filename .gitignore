@@ -57,9 +57,18 @@ Makefile
 *.bak
 *.orig
 *.swp
+*.tmp
+temp/
+tmp/
+
+# 本地测试 / 调试输出（不入库，源码测试入口除外）
+test_output/
+debug_output/
+*.test.exe
 
 # 银行系统运行时数据（不入库）
 bank_manage_system/accounts.txt
+bank_manage_system/transactions.txt
 
 # 第三方本地依赖（不入库）
 third_party/

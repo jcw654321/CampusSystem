@@ -21,6 +21,7 @@ Banksystem::Banksystem(const User& currentUser, bool isAdministrator,
 
 BankAccount* Banksystem::findAccountInternal(const string& accountId) const
 {
+    // 此处只负责按账号查找；权限和销户状态由公开业务函数按场景检查。
     for (const auto& account : accounts)
         if (account->getAccountId() == accountId)
             return account.get();
@@ -35,6 +36,7 @@ bool Banksystem::accountExists(const string& accountId) const
 
 bool Banksystem::canViewAccount(const BankAccount& account) const
 {
+    // 管理员可查看所有有效账户，普通用户只能查看本人账户。
     return isAdministrator() || account.getOwnerUserId() == getUserid();
 }
 
@@ -49,6 +51,7 @@ const BankAccount* Banksystem::findAccount(const string& accountId) const
 bool Banksystem::canOperateAccount(const string& accountId) const
 {
     // 当前版本管理员不代办存取款、转账。
+    // 此处统一检查登录角色、账户归属和销户状态；界面按钮状态不能替代后端校验。
     const BankAccount* account = findAccountInternal(accountId);
     return !administrator && account && !account->isClosed() &&
            account->getOwnerUserId() == getUserid();
@@ -68,6 +71,8 @@ bool Banksystem::userExists(const string& userId) const
     if (userId.empty() || userId.find_first_of(", \t\r\n") != string::npos)
         return false;
 
+    // 兼容不同启动目录：从银行数据目录及其上级目录查找用户数据。
+    // 找到第一份可读的 user.csv 后即以它为准，避免不同位置的数据互相覆盖判断。
     vector<filesystem::path> roots = {
         dataDirectory, dataDirectory.parent_path(), dataDirectory.parent_path().parent_path()};
     for (const auto& root : roots)
@@ -108,6 +113,7 @@ string Banksystem::openAccount(const string& ownerUserId, bool credit)
         bool sameType = (dynamic_cast<const CreditAccount*>(account.get()) != nullptr) == credit;
         if (!account->isClosed() && account->getOwnerUserId() == ownerUserId && sameType) return "";
     }
+    // 账号由账户类型前缀和用户号组成；销户后重开仍复用原账号。
     string accountId = (credit ? "C" : "S") + ownerUserId;
     const auto* previous = findAccountInternal(accountId);
     if (previous && (!previous->isClosed() || previous->getOwnerUserId() != ownerUserId ||
@@ -138,6 +144,7 @@ bool Banksystem::closeAccount(const string& accountId)
 
 bool Banksystem::withdraw(const string &accountId, int64_t amount)
 {
+    // 权限检查先于余额修改；账户类型决定实际取款规则。
     if (!canOperateAccount(accountId))
         return false;
     BankAccount *account = findAccountInternal(accountId);
@@ -146,6 +153,7 @@ bool Banksystem::withdraw(const string &accountId, int64_t amount)
 
 bool Banksystem::deposit(const string &accountId, int64_t amount)
 {
+    // 存款与取款一样，只允许普通用户操作本人未销户账户。
     if (!canOperateAccount(accountId))
         return false;
     BankAccount *account = findAccountInternal(accountId);
@@ -170,6 +178,7 @@ bool Banksystem::Transfer(const string &fromAccountId, const string &toAccountId
     {
         return false;
     }
+    // 收款账户可以属于其他用户，但必须存在、未销户且能安全接收该金额。
     // 先确认收款方能接收金额，再扣付款方的钱。
     if (toAccount->getBalance() > numeric_limits<int64_t>::max() - amount)
     {

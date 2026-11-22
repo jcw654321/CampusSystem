@@ -31,6 +31,7 @@ bool Banksystem::saveAccounts() const
 
 unique_ptr<BankAccount> Banksystem::parseAccountLine(const string &line) const
 {
+    // 文件按类型解析；任何字段缺失、矛盾或多余都会使整行无效。
     istringstream in(line);
     string type, accountId, ownerUserId;
     int64_t balance;
@@ -48,6 +49,7 @@ unique_ptr<BankAccount> Banksystem::parseAccountLine(const string &line) const
     {
         if (accountId != "S" + ownerUserId) return nullptr;
         if (balance < 0) return nullptr;
+        // 旧储蓄文件可能带利率字段；只校验格式，当前规则不再使用利率。
         string legacyRate;
         if (in >> legacyRate)
         {
@@ -62,6 +64,7 @@ unique_ptr<BankAccount> Banksystem::parseAccountLine(const string &line) const
     else if (type == "CREDIT")
     {
         if (accountId != "C" + ownerUserId) return nullptr;
+        // 旧文件仍要求额度字段格式有效，但新账户统一使用固定信用额度。
         int64_t legacyLimit;
         if (!(in >> legacyLimit) || legacyLimit < 0 ||
             balance < -CreditAccount::FixedCreditLimit) return nullptr;
@@ -85,7 +88,7 @@ bool Banksystem::loadAccounts()
     {
         return false;
     }
-    // 先读到临时容器；所有行都通过检查后才替换正式数据。
+    // 先读到临时容器；所有行都通过检查后才替换正式数据，避免部分加载。
     vector<unique_ptr<BankAccount>> loadedAccounts;
     string line;
     while (getline(in, line))

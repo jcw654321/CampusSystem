@@ -31,26 +31,23 @@ void drawStudentBankPage()
 
 void handleStudentAction(StudentBankAction action)
 {
+    // 后端检查账户归属和状态；管理员不能通过学生界面代办业务。
     if (!canOperateSelectedAccount())
     {
         setStatusMessage(L"请先选择本人的银行账户。");
         return;
     }
-    if (!retryPendingSave())
-        return;
 
     const BankAccount *account = getSelectedAccount();
-    if (!account)
-    {
-        setStatusMessage(L"请先点击表格选择账户。");
-        return;
-    }
-
     if (action == StudentBankAction::QueryBalance)
     {
         showAccountBalance(*account);
         return;
     }
+    // 只读查询不依赖保存；会修改余额的业务必须先重试之前的保存。
+    if (!retryPendingSave())
+        return;
+
     finishBankAction(performTransaction(action), false, false);
 }
 }
@@ -63,6 +60,7 @@ void runStudentBankFrontend()
     HWND window = GetHWnd();
     ExMessage message;
 
+    // 学生端不提供搜索，只响应本人账户选择、操作按钮和滚轮翻页。
     while (IsWindow(window))
     {
         if (!peekmessage(&message, EM_MOUSE))

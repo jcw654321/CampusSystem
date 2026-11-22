@@ -50,6 +50,7 @@ int main(int argc, char* argv[])
         cout << "已恢复账户。" << endl;
     }
     // 控制台仅用于测试，不提供手动保存；图形界面负责自动持久化。
+    // 管理员分支负责开户、销户和余额查询；学生分支只操作本人账户。
     while (true)
     {
         if (bankSystem.isAdministrator())

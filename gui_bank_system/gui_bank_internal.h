@@ -11,6 +11,7 @@
 
 namespace bank_gui
 {
+// 共享前端内部接口，仅供银行 GUI 的共用、管理员和学生实现文件使用。
 constexpr int RowsPerPage = 8;
 
 enum class AdminBankAction

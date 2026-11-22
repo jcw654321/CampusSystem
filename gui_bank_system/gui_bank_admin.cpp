@@ -20,6 +20,7 @@ void drawAdminActions()
         auto action = AdminButtons[i].action;
         bool opening = action == AdminBankAction::OpenSaving ||
                        action == AdminBankAction::OpenCredit;
+        // 开户无需先选账户；销户和余额查询必须针对已选账户。
         drawButton(60 + i * 137, 625, 121, AdminButtons[i].label,
                    opening || hasSelectedAccount());
     }
@@ -37,15 +38,15 @@ void handleAdminAction(AdminBankAction action)
 {
     bool openingAccount = action == AdminBankAction::OpenSaving ||
                           action == AdminBankAction::OpenCredit;
-    if (!retryPendingSave())
-        return;
-
     const BankAccount *account = getSelectedAccount();
     if (!openingAccount && !account)
     {
         setStatusMessage(L"请先点击表格选择账户。");
         return;
     }
+    // 查询余额不修改账户文件；其他操作先解决上次未保存的数据。
+    if (action != AdminBankAction::QueryBalance && !retryPendingSave())
+        return;
 
     bool changed = false;
     switch (action)
@@ -76,6 +77,7 @@ void runAdminBankFrontend()
     HWND window = GetHWnd();
     ExMessage message;
 
+    // 管理员只在本循环处理自己的按钮、搜索和账户列表事件。
     while (IsWindow(window))
     {
         if (!peekmessage(&message, EM_MOUSE))
