@@ -2,7 +2,7 @@
     "configurations": [
         {
             "name": "Win32",
-            "compilerPath": "cl.exe",
+            "compilerPath": "D:/Visual Studio/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/cl.exe",
             "compilerArgs": [
                 "/utf-8"
             ],
@@ -15,7 +15,13 @@
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/winrt",
                 "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/cppwinrt",
-                "${workspaceFolder}/student_manage_system/include"
+                "D:/Visual Studio/VC/Auxiliary/VS/include",
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/library_manage_system/include",
+                "${workspaceFolder}/student_manage_system/include",
+                "${workspaceFolder}/bank_manage_system/include",
+                "${workspaceFolder}/gui_student_system/include",
+                "${workspaceFolder}/gui_bank_system"
             ],
             "defines": [
                 "_DEBUG",

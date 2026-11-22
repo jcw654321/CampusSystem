@@ -9,8 +9,8 @@ using namespace std;
 // 学生类，继承自用户类，包含学生的基本信息和操作
 class Student : public User {
 public: 
-    Student(string name, string email, string userid, string password, string major, string studentId, string className)
-        : User(name, email, userid, password), major(major), studentId(studentId), className(className) {};
+    Student(string name, string email, string userid, string password, string major, string studentId, string className, string sex = "")
+        : User(name, email, userid, password, sex), major(major), studentId(studentId), className(className) {};
     string getMajor() const;                      // 获取专业
     string getStudentId() const;                  // 获取学号
     string getClassName() const;                  // 获取班级

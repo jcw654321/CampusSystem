@@ -2,131 +2,123 @@
 #include "SavingAccount.h"
 #include "CreditAccount.h"
 #include <fstream>
-#include <iomanip>
 #include <sstream>
+#include <system_error>
 #include <utility>
 
 using namespace std;
 
-// 这些函数仍属于 Banksystem 类，这里集中放置文本文件的读写实现。
-bool Banksystem::saveAccounts() const {
-    ofstream out("accounts.txt");
-    if (!out) {
+// 文件格式示例（金额都是分）：
+// accounts.txt:     SAVING SU001 U001 1250
+//                   CREDIT CU002 U002 -500 100000
+// 已销户账户在原行前加 CLOSED；旧储蓄记录末尾的利率字段会读取并忽略。
+// 旧信用账户记录中的额度仍按文件读取格式校验，但加载后统一使用固定额度。
+// 银行只保存账户数据，不保存交易记录。
+bool Banksystem::saveAccounts() const
+{
+    error_code ec;
+    filesystem::create_directories(dataDirectory, ec);
+    if (ec)
+    {
         return false;
     }
-    for (const auto& account : accounts) {
+
+    ofstream out(dataDirectory / "accounts.txt");
+    if (!out)
+    {
+        return false;
+    }
+    for (const auto &account : accounts)
+    {
+        if (account->isClosed()) out << "CLOSED ";
         account->writeTo(out);
     }
     out.close();
     return !out.fail();
 }
 
-unique_ptr<BankAccount> Banksystem::parseAccountLine(const string& line) const {
+unique_ptr<BankAccount> Banksystem::parseAccountLine(const string &line) const
+{
+    // 文件按类型解析；任何字段缺失、矛盾或多余都会使整行无效。
     istringstream in(line);
-    string type, accountId, studentId;
+    string type, accountId, ownerUserId;
     int64_t balance;
 
-    if (!(in >> type >> accountId >> studentId >> balance)) {
-        return nullptr;
+    bool closed = false;
+    if (!(in >> type)) return nullptr;
+    if (type == "CLOSED")
+    {
+        closed = true;
+        if (!(in >> type)) return nullptr;
     }
+    if (!(in >> accountId >> ownerUserId >> balance) || (closed && balance != 0)) return nullptr;
+    unique_ptr<BankAccount> account;
+    if (type == "SAVING")
+    {
+        if (accountId != "S" + ownerUserId) return nullptr;
+        if (balance < 0) return nullptr;
+        // 旧储蓄文件可能带利率字段；只校验格式，当前规则不再使用利率。
+        string legacyRate;
+        if (in >> legacyRate)
+        {
+            istringstream rateInput(legacyRate);
+            double ignoredRate;
+            string rateExtra;
+            if (!(rateInput >> ignoredRate) || ignoredRate < 0 || (rateInput >> rateExtra))
+                return nullptr;
+        }
+        account = make_unique<SavingAccount>(accountId, ownerUserId, balance);
+    }
+    else if (type == "CREDIT")
+    {
+        if (accountId != "C" + ownerUserId) return nullptr;
+        // 旧文件仍要求额度字段格式有效，但新账户统一使用固定信用额度。
+        int64_t legacyLimit;
+        if (!(in >> legacyLimit) || legacyLimit < 0 ||
+            balance < -CreditAccount::FixedCreditLimit) return nullptr;
+        account = make_unique<CreditAccount>(accountId, ownerUserId, balance);
+    }
+    else return nullptr;
     string extra;
-    if (type == "SAVING") {
-        double rate;
-        if (!(in >> rate) || (in >> extra) || rate < 0 || balance < 0) {
-            return nullptr;
-        }
-        return make_unique<SavingAccount>(accountId, studentId, rate, balance);
-    }
-    if (type == "CREDIT") {
-        int64_t limit;
-        if (!(in >> limit) || (in >> extra) || limit < 0 || balance < -limit) {
-            return nullptr;
-        }
-        return make_unique<CreditAccount>(accountId, studentId, limit, balance);
-    }
-    return nullptr;
+    if (in >> extra) return nullptr;
+    account->closed = closed;
+    return account;
 }
 
-bool Banksystem::loadAccounts() {
-    if (!accounts.empty()) {
+bool Banksystem::loadAccounts()
+{
+    if (!accounts.empty())
+    {
         return false;
     }
-    ifstream in("accounts.txt");
-    if (!in) {
+    ifstream in(dataDirectory / "accounts.txt");
+    if (!in)
+    {
         return false;
     }
-    vector<unique_ptr<BankAccount>> loaded;
+    // 先读到临时容器；所有行都通过检查后才替换正式数据，避免部分加载。
+    vector<unique_ptr<BankAccount>> loadedAccounts;
     string line;
-    while (getline(in, line)) {
+    while (getline(in, line))
+    {
         auto account = parseAccountLine(line);
-        if (!account) {
+        if (!account)
+        {
             return false;
         }
-        for (const auto& existing : loaded) {
-            if (existing->getAccountId() == account->getAccountId()) {
+        for (const auto &existing : loadedAccounts)
+        {
+            if (existing->getAccountId() == account->getAccountId())
+            {
                 return false;
             }
         }
-        loaded.push_back(move(account));
+        loadedAccounts.push_back(move(account));
     }
-    if (in.bad() || !in.eof()) {
+    if (in.bad() || !in.eof())
+    {
         return false;
     }
-    accounts.swap(loaded);
-    return true;
-}
-
-bool Banksystem::saveTransactions() const {
-    ofstream out("transactions.txt");
-    if (!out) {
-        return false;
-    }
-    for (const auto& t : transactions) {
-        out << quoted(t.type) << ' '
-            << t.amount << ' '
-            << quoted(t.fromAccountId) << ' '
-            << quoted(t.toAccountId) << '\n';
-    }
-    out.close();
-    return !out.fail();
-}
-
-bool Banksystem::loadTransactions() {
-    ifstream in("transactions.txt");
-    if (!in) {
-        return false;
-    }
-    vector<Transaction> loaded;
-    string line;
-    while (getline(in, line)) {
-        istringstream row(line);
-        Transaction t;
-        if (!(row >> quoted(t.type) >> t.amount
-                  >> quoted(t.fromAccountId) >> quoted(t.toAccountId))) {
-            return false;
-        }
-        string extra;
-        if (t.amount <= 0 || (row >> extra)) {
-            return false;
-        }
-        if (t.type == "存款") {
-            if (!t.fromAccountId.empty() || !accountExists(t.toAccountId))
-                return false;
-        } else if (t.type == "取款") {
-            if (!accountExists(t.fromAccountId) || !t.toAccountId.empty())
-                return false;
-        } else if (t.type == "转账") {
-            if (!accountExists(t.fromAccountId) || !accountExists(t.toAccountId)
-                || t.fromAccountId == t.toAccountId)
-                return false;
-        } else {
-            return false;
-        }
-        loaded.push_back(t);
-    }
-    if (in.bad() || !in.eof()) {
-        return false;
-    }
-    transactions.swap(loaded);
+    accounts.swap(loadedAccounts);
     return true;
 }

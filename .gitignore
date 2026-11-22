@@ -1,12 +1,73 @@
+# C/C++ compiled binaries
 *.exe
-*.o
 *.out
+*.o
+*.obj
+*.dll
+*.lib
+*.a
+*.so
+
+# MSVC / Visual Studio
+.vs/
 .vscode/
+!.vscode/tasks.json
+*.cmd
 # 编译产物（不要提交到仓库）
 build/
 *.obj
 *.exe
 *.pdb
 *.ilk
-*.rsp
+*.idb
+*.exp
+*.map
+*.tlog
+*.log
+*.tmp
+*.aps
+*.ncb
+*.opendb
+*.db
+*.VC.db
+*.user
+*.suo
+*.vcxproj.user
+*.vcxproj.filters
+*.sln.docstates
 
+# Build output directories
+build/
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+out/
+cmake-build-*/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+Makefile
+*.cmake
+
+# Local temporary files
+*.bak
+*.orig
+*.swp
+*.tmp
+temp/
+tmp/
+
+# 本地测试 / 调试输出（不入库，源码测试入口除外）
+test_output/
+debug_output/
+*.test.exe
+
+# 银行系统运行时数据（不入库）
+bank_manage_system/data/accounts.txt
+
+# 第三方本地依赖（不入库）
+third_party/
