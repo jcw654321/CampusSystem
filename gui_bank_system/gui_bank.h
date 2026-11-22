@@ -1,7 +1,6 @@
 #pragma once
 #include "user.h"
-#include "BankRole.h"
 #include <filesystem>
 
-void runBankGui(const User& currentUser, BankRole role,
+void runBankGui(const User& currentUser, bool isAdministrator,
                 const std::filesystem::path& dataDirectory);

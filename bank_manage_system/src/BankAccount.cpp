@@ -3,10 +3,10 @@
 
 using namespace std;
 
-BankAccount::BankAccount(const string &accountId, const string &studentId, int64_t balance)
+BankAccount::BankAccount(const string &accountId, const string &ownerUserId, int64_t balance)
 {
     this->accountId = accountId;
-    this->studentId = studentId;
+    this->ownerUserId = ownerUserId;
     this->balance = balance;
 }
 
@@ -15,9 +15,9 @@ string BankAccount::getAccountId() const
     return accountId;
 }
 
-string BankAccount::getStudentId() const
+string BankAccount::getOwnerUserId() const
 {
-    return studentId;
+    return ownerUserId;
 }
 
 int64_t BankAccount::getBalance() const
@@ -27,7 +27,7 @@ int64_t BankAccount::getBalance() const
 
 bool BankAccount::deposit(int64_t amount)
 {
-    if (amount <= 0)
+    if (closed || amount <= 0)
     {
         return false;
     }
@@ -43,7 +43,16 @@ bool BankAccount::deposit(int64_t amount)
 bool BankAccount::withdraw(int64_t amount)
 {
     // 默认规则：只能取出已有余额，储蓄账户直接沿用此实现。
-    if (amount <= 0 || amount > balance)
+    if (closed || amount <= 0 || amount > balance)
+    {
+        return false;
+    }
+    return reduceBalance(amount);
+}
+
+bool BankAccount::reduceBalance(int64_t amount)
+{
+    if (closed || amount <= 0 || balance < numeric_limits<int64_t>::min() + amount)
     {
         return false;
     }

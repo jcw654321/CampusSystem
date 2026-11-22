@@ -2,20 +2,12 @@
 
 using namespace std;
 
-SavingAccount::SavingAccount(const string &accountId, const string &studentId, double interestRate,
-                             int64_t balance)
-    : BankAccount(accountId, studentId, balance)
+SavingAccount::SavingAccount(const string &accountId, const string &ownerUserId, int64_t balance)
+    : BankAccount(accountId, ownerUserId, balance)
 {
-    this->interestRate = interestRate;
-}
-
-double SavingAccount::getInterestRate() const
-{
-    return interestRate;
 }
 
 void SavingAccount::writeTo(ostream &out) const
 {
-    out << "SAVING " << accountId << ' ' << studentId << ' ' << balance << ' ' << interestRate
-        << '\n';
+    out << "SAVING " << getAccountId() << ' ' << getOwnerUserId() << ' ' << getBalance() << '\n';
 }
