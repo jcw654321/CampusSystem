@@ -3,7 +3,7 @@
 #include<string>
 using namespace std;
 
-
+//学科类用于管理学生的课程信息，包括课程名称、课程ID、教师姓名和成绩
 class subject {
 public:
     subject(string name, string subjectId, string teacherName, float score)
