@@ -136,13 +136,14 @@ void runStudentGui(const string& userId)
         return;
     }
 
+    // 创建学生管理器并加载学生基本信息。
     StudentManager manager("管理员", "", "admin", "");
-    Manager* managerBase = &manager;
-    managerBase->loadRecords();
     manager.loadRecords();
+    // 复制学生列表，供后续加载课程信息并查找当前学生。
     vector<Student> students = manager.getStudents();
 
     SubjectManager subjectManager("管理员", "", "admin", "");
+    // 根据学生学号加载各自的课程信息。
     subjectManager.loadSubjectsFromfile(students);
 
     std::filesystem::current_path(oldDir);

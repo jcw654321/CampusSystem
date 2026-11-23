@@ -33,7 +33,7 @@ bool parseCsvLine(const string& line, vector<string>& fields)
     return !inQuotes;
 }
 
-//写入时如果有"则再加一个"
+//用于将字段值转义为CSV格式
 string escapeCsvField(const string& value)
 {
     if (value.find_first_of(",\"\r\n") == string::npos)

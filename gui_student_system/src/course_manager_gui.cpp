@@ -11,6 +11,7 @@ using namespace std;
 
 namespace
 {
+// 将 UTF-8 窄字符串转换为宽字符串，供界面文本显示使用。
 wstring toWstring(const string &s)
 {
     if (s.empty())
@@ -23,6 +24,7 @@ wstring toWstring(const string &s)
     return w;
 }
 
+// 将宽字符串转换为 UTF-8 窄字符串，便于处理用户输入。
 string toString(const wstring &w)
 {
     if (w.empty())
@@ -35,6 +37,7 @@ string toString(const wstring &w)
     return s;
 }
 
+// 去除字符串首尾的空白字符。
 string trimWhitespace(const string &value)
 {
     const string whitespace = " \t\n\r\f\v";
@@ -46,6 +49,7 @@ string trimWhitespace(const string &value)
     return value.substr(first, last - first + 1);
 }
 
+// 绘制课程管理页面顶部的标题栏。
 void drawHeader()
 {
     setfillcolor(RGB(0, 63, 136));
@@ -57,6 +61,7 @@ void drawHeader()
     outtextxy(40, 22, L"华南理工大学  校园综合管理系统");
 }
 
+// 绘制页面底部的分隔线和版权文字。
 void drawFooter()
 {
     setlinecolor(RGB(205, 212, 224));
@@ -69,12 +74,14 @@ void drawFooter()
     outtextxy((1200 - w) / 2, 724, text);
 }
 
+// 使用提示框显示窄字符串消息。
 void showText(const string &text)
 {
     wstring wide = toWstring(text);
     MessageBoxW(GetHWnd(), wide.c_str(), L"提示", MB_OK);
 }
 
+// 获取必填文本；用户取消时返回 false，空输入时提示并重试。
 bool inputText(const wchar_t *prompt, string &value)
 {
     while (true)
@@ -91,6 +98,7 @@ bool inputText(const wchar_t *prompt, string &value)
     }
 }
 
+// 获取可选文本；允许用户留空，取消时返回 false。
 bool inputOptionalText(const wchar_t *prompt, string &value)
 {
     wchar_t buffer[256] = {};
@@ -101,6 +109,7 @@ bool inputOptionalText(const wchar_t *prompt, string &value)
     return true;
 }
 
+// 解析成绩，并检查其是否在 0 到 100 之间。
 bool parseScore(const string &text, float &score)
 {
     char *end = nullptr;
@@ -108,6 +117,7 @@ bool parseScore(const string &text, float &score)
     return end != text.c_str() && *end == '\0' && score >= 0 && score <= 100;
 }
 
+// 绘制学生课程管理页面及四个操作按钮。
 void drawCoursePage(const Student &student)
 {
     cleardevice();
@@ -142,6 +152,7 @@ void drawCoursePage(const Student &student)
     FlushBatchDraw();
 }
 
+// 根据鼠标坐标返回对应按钮编号；未点击按钮时返回 -1。
 int hitCourseButton(int x, int y)
 {
     if (x < 360 || x > 840)
@@ -158,6 +169,7 @@ int hitCourseButton(int x, int y)
 
 void handleCourseAction(int action, Student &student, SubjectManager &subjectManager)
 {
+    // 按按钮编号执行查看、添加、删除课程或修改成绩操作。
     if (action == 0)
     {
         ostringstream result;
@@ -265,6 +277,7 @@ void runCourseManagerGui(Student &student, SubjectManager &subjectManager)
 {
     drawCoursePage(student);
 
+    // 处理课程管理页面的鼠标和键盘事件。
     ExMessage msg;
     HWND hwnd = GetHWnd();
     while (IsWindow(hwnd))

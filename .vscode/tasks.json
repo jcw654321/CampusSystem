@@ -8,7 +8,13 @@
             "args": [
                 "${workspaceFolder}\\library_manage_system"
             ],
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
             "problemMatcher": [ "$msCompile" ],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared", "clear": true },
@@ -37,7 +43,13 @@
             "args": [
                 "${workspaceFolder}\\bank_manage_system"
             ],
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
             "problemMatcher": [ "$msCompile" ],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared", "clear": true },

@@ -244,6 +244,7 @@ namespace
             showText(result.str().empty() ? "暂无学生数据。" : result.str());
             break;
         }
+        // 1. 添加学生
         case 1:
         {
             vector<string> fields;
@@ -283,6 +284,7 @@ namespace
                 showText("学生已添加，但保存文件失败。");
             break;
         }
+        // 2. 删除学生
         case 2:
         {
             string id;
@@ -304,6 +306,7 @@ namespace
                 showText("学生已删除，但保存文件失败。");
             break;
         }
+        // 3. 更新学生信息
         case 3:
         {
             string id;
@@ -336,8 +339,7 @@ namespace
                 !inputOptionalText(L"班级（留空保持不变）", className))
                 return;
 
-            updatedStudent = Student(name, email, userId, password, major, studentId, className);
-            updatedStudent.setSex(sex);
+            updatedStudent = Student(name, email, userId, password, major, studentId, className, sex);
 
             DataRecord record{
                 id,
@@ -352,6 +354,7 @@ namespace
                 showText("学生信息已更新，但保存文件失败。");
             break;
         }
+        // 4. 查找学生
         case 4:
         {
             string id;
@@ -375,6 +378,7 @@ namespace
             showText(result.str());
             break;
         }
+        // 5. 按课程查询学生
         case 5:
         {
             string courseId;
@@ -398,6 +402,7 @@ namespace
                          : result.str());
             break;
         }
+        // 6. 成绩排名
         case 6:
         {
             vector<StudentAverage> ranked =

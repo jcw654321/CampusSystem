@@ -18,7 +18,7 @@ if not exist "%SRC%" (
 pushd "%SRC%"
 
 REM MSVC needs INCLUDE/LIB from vcvars64.bat, which a plain shell lacks
-call "D:\Vidual Studio\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+call "D:\Visual Studio\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] MSVC x64 build environment is unavailable.
     exit /b 1

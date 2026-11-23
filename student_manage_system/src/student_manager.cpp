@@ -33,7 +33,7 @@ bool StudentManager::loadRecords()
         loadedStudents.push_back(student);
     }
 
-    students.swap(loadedStudents);
+    students.swap(loadedStudents); // 使用 swap 以避免不必要的复制
     return true;
 }
 
@@ -80,14 +80,14 @@ bool StudentManager::removeRecord(const string& studentId)
         if (it->getStudentId() == studentId) {
             const filesystem::path courseFileName(studentId + ".csv");
             if (studentId.empty() || courseFileName.has_parent_path() ||
-                courseFileName.has_root_name())
+                courseFileName.has_root_name()) //只允许单纯文件名
                 return false;
 
             const string userid = it->getUserid();
             students.erase(it);
             if (!saveRecords())
                 return false;
-
+            // 删除对应的用户和课程文件
             UserManager userManager("..\\data\\user.csv");
             const bool userDeleted = userManager.DeleteUser(userid);
 
